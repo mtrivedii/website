@@ -24,7 +24,7 @@ jobs:
       uses: azure/webapps-deploy@v2
       with:
         app-name: maanit-website
-        package: .
+        package: ./public
 
     # --- Deploy Backend (Function App) ---
     - name: Setup Node.js
@@ -39,5 +39,5 @@ jobs:
     - name: Deploy Azure Function App
       uses: Azure/functions-action@v1
       with:
-        app-name: maanit-website
-        package: ./public
+        app-name: maanit-func
+        package: ./api
