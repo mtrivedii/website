@@ -19,8 +19,8 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    # --- Deploy Frontend to Azure App Service ---
-    - name: Upload frontend (HTML/CSS) to Azure App Service
+    # --- Deploy Frontend (HTML/CSS/JS) ---
+    - name: Upload frontend to Azure App Service
       uses: azure/webapps-deploy@v2
       with:
         app-name: maanit-website
