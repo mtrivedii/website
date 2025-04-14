@@ -1,0 +1,38 @@
+body {
+    font-family: sans-serif;
+    background: #f2f4f8;
+    text-align: center;
+    padding: 50px;
+  }
+  
+  .container {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    max-width: 400px;
+    margin: auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  }
+  
+  input {
+    margin: 10px 0;
+    padding: 10px;
+    width: 80%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    background-color: #0078d4;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  
+  .btn:hover {
+    background-color: #005ea2;
+  }
+  
