@@ -39,5 +39,5 @@ jobs:
     - name: Deploy Azure Function App
       uses: Azure/functions-action@v1
       with:
-        app-name: maanit-func
-        package: ./api
+        app-name: maanit-website
+        package: ./website/public
