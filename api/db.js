@@ -1,10 +1,10 @@
 const sql = require('mssql');
 const { DefaultAzureCredential } = require('@azure/identity');
 
-// Environment variables to keep it clean and secure
+// Secure DB config using environment variables
 const dbConfig = {
-  server: process.env.DB_SERVER,            // e.g. maanitsql.database.windows.net
-  database: process.env.DB_NAME,            // e.g. maanit-sqldb
+  server: process.env.DB_SERVER,       // e.g. maanitsql.database.windows.net
+  database: process.env.DB_NAME,       // e.g. maanit-sqldb
   options: {
     encrypt: true,
     enableArithAbort: true,
@@ -20,8 +20,10 @@ async function getConnection() {
     const credential = new DefaultAzureCredential();
     const accessToken = await credential.getToken("https://database.windows.net/");
 
-    // Inject token into config
-    dbConfig.token = accessToken.token;
+    // ✅ Use correct token key for mssql: accessToken
+    dbConfig.authentication.options = {
+      token: accessToken.token
+    };
 
     const pool = await sql.connect(dbConfig);
     return pool;
