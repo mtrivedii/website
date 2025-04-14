@@ -1,4 +1,4 @@
-name: Deploy Website & API to Azure
+name: Build and Deploy
 
 on:
   push:
@@ -10,34 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # --- Login to Azure ---
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
 
-    # --- Deploy Frontend (HTML/CSS/JS) ---
-    - name: Upload frontend to Azure App Service
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: maanit-website
-        package: ./public
+      - name: npm install
+        run: npm install
 
-    # --- Setup Node.js for Function App ---
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
+      - name: Upload frontend to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: maanit-website
+          package: .
+          slot-name: production
 
-    - name: Install backend dependencies
-      run: npm install
-      working-directory: api
-
-    - name: Deploy Azure Function App
-      uses: Azure/functions-action@v1
-      with:
-        app-name: maanit-func
-        package: ./api
+      - name: Upload backend to Azure Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: maanit-func
+          package: ./api
