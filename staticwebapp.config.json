@@ -1,4 +1,3 @@
-// staticwebapp.config.json
 {
   "navigationFallback": {
     "rewrite": "/index.html"
