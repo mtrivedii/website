@@ -1,4 +1,4 @@
-name: Deploy Static Site to Azure App Service
+name: build-and-deploy
 
 on:
   push:
@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Upload frontend to Azure App Service
         uses: azure/webapps-deploy@v2
