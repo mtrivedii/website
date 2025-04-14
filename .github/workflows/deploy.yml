@@ -40,4 +40,4 @@ jobs:
       uses: Azure/functions-action@v1
       with:
         app-name: maanit-website
-        package: ./website/public
+        package: ./public
