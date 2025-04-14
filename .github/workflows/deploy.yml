@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Deploy Static Site to Azure App Service
 
 on:
   push:
@@ -6,20 +6,12 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
-
-      - name: npm install
-        run: npm install
 
       - name: Upload frontend to Azure App Service
         uses: azure/webapps-deploy@v2
