@@ -24,7 +24,7 @@
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
 
-      const res = await fetch('https://maanit-func.azurewebsites.net/api/register', {
+      const res = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,7 +34,7 @@
       });
 
       const data = await res.json();
-      alert(data.message || data.error);
+      alert(data.message || data.error || 'Registered!');
     });
   </script>
 </body>
