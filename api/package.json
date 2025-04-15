@@ -2,7 +2,6 @@
   "name": "secure-api",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "module",
   "dependencies": {
     "@azure/identity": "^4.1.0",
     "mssql": "^10.0.0"
