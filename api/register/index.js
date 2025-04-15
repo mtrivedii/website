@@ -1,5 +1,6 @@
 const { getConnection } = require('../db');
 const sql = require('mssql');
+const bcrypt = require('bcrypt'); // Optional, but recommended
 
 module.exports = async function (context, req) {
   const { email, password } = req.body || {};
@@ -14,6 +15,7 @@ module.exports = async function (context, req) {
 
   try {
     const pool = await getConnection();
+
     const existing = await pool.request()
       .input('email', sql.VarChar, email)
       .query('SELECT id FROM users WHERE email = @email');
@@ -26,9 +28,11 @@ module.exports = async function (context, req) {
       return;
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10); // 🔐
+
     await pool.request()
       .input('email', sql.VarChar, email)
-      .input('password', sql.VarChar, password) // Consider hashing!
+      .input('password', sql.VarChar, hashedPassword)
       .query('INSERT INTO users (email, password) VALUES (@email, @password)');
 
     context.res = {
@@ -36,6 +40,7 @@ module.exports = async function (context, req) {
       body: { message: 'User registered successfully' }
     };
   } catch (err) {
+    console.error(err); // Only for dev
     context.res = {
       status: 500,
       body: { error: 'Registration failed' }
