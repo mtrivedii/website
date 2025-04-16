@@ -5,24 +5,18 @@ try {
   ({ getConnection } = require('../db'));
 } catch (err) {
   console.error("Failed to load db.js:", err);
-  // Fails before function even runs
 }
 
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 
-module.exports = async function (context, req) {
-  context.log("register function invoked");
+module.exports = async function (req, res) {
+  console.log("register function invoked");
 
   const { email, password } = req.body || {};
 
   if (!email || !password) {
-    context.res = {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-      body: { error: 'Email and password required' }
-    };
-    return;
+    return res.status(400).json({ error: 'Email and password required' });
   }
 
   let pool;
@@ -30,12 +24,7 @@ module.exports = async function (context, req) {
     pool = await getConnection();
   } catch (dbErr) {
     console.error("DB connection failed:", dbErr);
-    context.log.error("DB connection failed:", dbErr);
-    context.res = {
-      status: 500,
-      body: { error: "Database connection failed" }
-    };
-    return;
+    return res.status(500).json({ error: "Database connection failed" });
   }
 
   try {
@@ -44,12 +33,7 @@ module.exports = async function (context, req) {
       .query('SELECT id FROM users WHERE email = @email');
 
     if (existing.recordset.length > 0) {
-      context.res = {
-        status: 409,
-        headers: { 'Content-Type': 'application/json' },
-        body: { error: 'User already exists' }
-      };
-      return;
+      return res.status(409).json({ error: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -59,18 +43,9 @@ module.exports = async function (context, req) {
       .input('password', sql.VarChar, hashedPassword)
       .query('INSERT INTO users (email, password) VALUES (@email, @password)');
 
-    context.res = {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-      body: { message: 'User registered successfully' }
-    };
+    return res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
     console.error("Unexpected error in registration logic:", err);
-    context.log.error("Unexpected error in registration logic:", err);
-    context.res = {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: { error: 'Registration failed due to unexpected error' }
-    };
+    return res.status(500).json({ error: 'Registration failed due to unexpected error' });
   }
 };
