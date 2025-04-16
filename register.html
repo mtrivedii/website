@@ -12,6 +12,7 @@
     <form id="registerForm">
       <input type="email" placeholder="Email" required id="email" /><br/>
       <input type="password" placeholder="Password" required id="password" /><br/>
+      <input type="password" placeholder="Confirm Password" required id="confirmPassword" /><br/>
       <button class="btn" type="submit">Register</button>
     </form>
     <p><a href="login.html">← Back to Login</a></p>
@@ -23,18 +24,29 @@
 
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
 
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': 'bruddasecret123' // Future use
-        },
-        body: JSON.stringify({ email, password })
-      });
+      if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+      }
 
-      const data = await res.json();
-      alert(data.message || data.error || 'Registered!');
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': 'bruddasecret123' // Future use
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        alert(data.message || data.error || 'Something happened');
+      } catch (err) {
+        console.error(err);
+        alert('Registration failed');
+      }
     });
   </script>
 </body>
