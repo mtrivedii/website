@@ -1,14 +1,15 @@
+// db.js
 const sql = require('mssql');
 
 const config = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_NAME,
+  server: process.env.DB_SERVER,       // e.g. maanit-server.database.windows.net
+  database: process.env.DB_NAME,       // e.g. maanit-sql-db
+  authentication: {
+    type: 'azure-active-directory-default' // Uses Managed Identity
+  },
   options: {
     encrypt: true,
     trustServerCertificate: false
-  },
-  authentication: {
-    type: 'azure-active-directory-default'
   }
 };
 
@@ -21,4 +22,4 @@ async function getConnection() {
   return pool;
 }
 
-module.exports = { sql, getConnection };
+module.exports = { getConnection };
