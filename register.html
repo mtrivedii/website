@@ -35,8 +35,7 @@
         const res = await fetch('https://maanit-func.azurewebsites.net/api/register', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': 'bruddasecret123' // future use
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ email, password })
         });
@@ -45,7 +44,7 @@
         try {
           data = await res.json();
         } catch {
-          alert("Failed to connect to server or invalid response.");
+          alert("Server returned an invalid response.");
           return;
         }
 
@@ -56,7 +55,7 @@
           window.location.href = "login.html";
         }
       } catch (err) {
-        alert("Request failed. Check your connection.");
+        alert("Failed to connect to server.");
         console.error(err);
       }
     });
