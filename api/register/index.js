@@ -1,8 +1,19 @@
-const { getConnection } = require('../db');
+console.log("register function loaded");
+
+let getConnection;
+try {
+  ({ getConnection } = require('../db'));
+} catch (err) {
+  console.error("Failed to load db.js:", err);
+  // Fails before function even runs
+}
+
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 
 module.exports = async function (context, req) {
+  context.log("register function invoked");
+
   const { email, password } = req.body || {};
 
   if (!email || !password) {
@@ -14,9 +25,20 @@ module.exports = async function (context, req) {
     return;
   }
 
+  let pool;
   try {
-    const pool = await getConnection();
+    pool = await getConnection();
+  } catch (dbErr) {
+    console.error("DB connection failed:", dbErr);
+    context.log.error("DB connection failed:", dbErr);
+    context.res = {
+      status: 500,
+      body: { error: "Database connection failed" }
+    };
+    return;
+  }
 
+  try {
     const existing = await pool.request()
       .input('email', sql.VarChar, email)
       .query('SELECT id FROM users WHERE email = @email');
@@ -43,11 +65,12 @@ module.exports = async function (context, req) {
       body: { message: 'User registered successfully' }
     };
   } catch (err) {
-    console.error(err);
+    console.error("Unexpected error in registration logic:", err);
+    context.log.error("Unexpected error in registration logic:", err);
     context.res = {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: { error: 'Registration failed' }
+      body: { error: 'Registration failed due to unexpected error' }
     };
   }
 };
