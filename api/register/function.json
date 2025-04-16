@@ -5,7 +5,7 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [ "post" ],
+      "methods": ["post"],
       "route": "register"
     },
     {
@@ -13,5 +13,7 @@
       "direction": "out",
       "name": "res"
     }
-  ]
+  ],
+  "scriptFile": "index.js",
+  "entryPoint": "run"
 }
