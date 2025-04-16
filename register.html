@@ -27,7 +27,7 @@
       const confirmPassword = document.getElementById("confirmPassword").value;
 
       if (password !== confirmPassword) {
-        alert("Passwords do not match");
+        alert("Passwords do not match.");
         return;
       }
 
@@ -36,24 +36,30 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': 'bruddasecret123'
+            'x-api-key': 'bruddasecret123' // future use
           },
           body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          alert("Failed to connect to server or invalid response.");
+          return;
+        }
 
-        if (res.ok) {
-          alert(data.message || 'Registration successful');
-          window.location.href = 'login.html';
+        if (!res.ok) {
+          alert(data.error || "Registration failed.");
         } else {
-          alert(data.error || 'Registration failed');
+          alert(data.message || "User registered successfully.");
+          window.location.href = "login.html";
         }
       } catch (err) {
+        alert("Request failed. Check your connection.");
         console.error(err);
-        alert('Failed to connect to server.');
       }
     });
   </script>
 </body>
-</html>
+</html
