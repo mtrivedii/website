@@ -1,18 +1,13 @@
 {
-  "name": "maanit-website",
+  "name": "secure-azure-function-backend",
   "version": "1.0.0",
-  "description": "Secure Node.js web app running on Azure App Service (Linux)",
-  "main": "server.js",
+  "description": "Backend API using Azure Functions + Managed Identity",
+  "main": "register/index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "func start"
   },
   "dependencies": {
-    "express": "^4.18.4",
-    "body-parser": "^1.20.2"
+    "bcrypt": "^5.1.0",
+    "mssql": "^9.0.1"
   },
   "engines": {
-    "node": "20.x"
-  },
-  "author": "Maanit Trivedi",
-  "license": "MIT"
-}
