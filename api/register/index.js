@@ -3,12 +3,31 @@ const sql = require('mssql');
 const bcrypt = require('bcrypt');
 
 module.exports = async function (context, req) {
+  const origin = 'https://maanit-website.azurewebsites.net';
+
+  // ✅ Handle preflight CORS request
+  if (req.method === 'OPTIONS') {
+    context.res = {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    };
+    return;
+  }
+
   const { email, password } = req.body || {};
 
   if (!email || !password) {
     context.res = {
       status: 400,
-      body: { error: 'Email and password required' }
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Content-Type': 'application/json',
+      },
+      body: { error: 'Email and password required' },
     };
     return;
   }
@@ -23,7 +42,11 @@ module.exports = async function (context, req) {
     if (existing.recordset.length > 0) {
       context.res = {
         status: 409,
-        body: { error: 'User already exists' }
+        headers: {
+          'Access-Control-Allow-Origin': origin,
+          'Content-Type': 'application/json',
+        },
+        body: { error: 'User already exists' },
       };
       return;
     }
@@ -37,13 +60,22 @@ module.exports = async function (context, req) {
 
     context.res = {
       status: 201,
-      body: { message: 'User registered successfully' }
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Content-Type': 'application/json',
+      },
+      body: { message: 'User registered successfully' },
     };
   } catch (err) {
-    console.error('❌ Registration error:', err);
+    console.error('Registration error:', err);
+
     context.res = {
       status: 500,
-      body: { error: err.message || 'Registration failed' } // TEMPORARY: remove `err.message` later
+      headers: {
+        'Access-Control-Allow-Origin': origin,
+        'Content-Type': 'application/json',
+      },
+      body: { error: 'Registration failed' },
     };
   }
 };
