@@ -1,31 +1,58 @@
-<script>
-  document.getElementById("registerForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register - Secure Azure App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>📝 Register</h1>
+    <form id="registerForm">
+      <input type="email" placeholder="Email" required id="email" /><br/>
+      <input type="password" placeholder="Password" required id="password" /><br/>
+      <input type="password" placeholder="Confirm Password" required id="confirmPassword" /><br/>
+      <button class="btn" type="submit">Register</button>
+    </form>
+    <p><a href="login.html">← Back to Login</a></p>
+  </div>
 
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-    try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
 
-      const data = await res.json();
-
-      if (res.ok) {
-        // Redirect on success
-        window.location.href = 'register-success.html';
-      } else {
-        alert(data.error || 'Registration failed');
+      if (password !== confirmPassword) {
+        alert("Passwords do not match.");
+        return;
       }
 
-    } catch (err) {
-      console.error(err);
-      alert('Something went wrong. Try again.');
-    }
-  });
-</script>
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': 'bruddasecret123'
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(data.message || 'Registration successful!');
+          window.location.href = 'login.html';
+        } else {
+          alert(data.error || 'Registration failed.');
+        }
+      } catch (err) {
+        alert("Failed to connect to server.");
+      }
+    });
+  </script>
+</body>
+</html>
