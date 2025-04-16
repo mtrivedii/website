@@ -3,6 +3,18 @@ const sql = require('mssql');
 const bcrypt = require('bcrypt');
 
 module.exports = async function (context, req) {
+  const expectedApiKey = process.env.API_KEY;
+  const providedApiKey = req.headers['x-api-key'];
+
+  // 🔒 Validate API key
+  if (!expectedApiKey || providedApiKey !== expectedApiKey) {
+    context.res = {
+      status: 401,
+      body: { error: 'Unauthorized request' }
+    };
+    return;
+  }
+
   const { email, password } = req.body || {};
 
   if (!email || !password) {
@@ -16,6 +28,7 @@ module.exports = async function (context, req) {
   try {
     const pool = await getConnection();
 
+    // 🔎 Check if user exists
     const existing = await pool.request()
       .input('email', sql.VarChar, email)
       .query('SELECT id FROM users WHERE email = @email');
@@ -28,6 +41,7 @@ module.exports = async function (context, req) {
       return;
     }
 
+    // 🔐 Hash password and insert
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.request()
@@ -40,11 +54,10 @@ module.exports = async function (context, req) {
       body: { message: 'User registered successfully' }
     };
   } catch (err) {
-    console.error('🔥 Registration failed:', err); // Server log
-    context.log.error('Registration function error:', err); // Azure Functions log
+    console.error('Registration error:', err);
     context.res = {
       status: 500,
-      body: { error: 'Internal error: ' + err.message }
+      body: { error: 'Registration failed' }
     };
   }
 };
