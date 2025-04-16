@@ -1,9 +1,15 @@
 {
-  "name": "secure-api",
+  "name": "secure-azure-function-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Backend API using Azure Functions + Managed Identity",
+  "main": "register/index.js",
   "dependencies": {
-    "@azure/identity": "^4.1.0",
+    "bcrypt": "^5.1.0",
     "mssql": "^11.0.1"
-  }
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "author": "Maanit Trivedi",
+  "license": "MIT"
 }
