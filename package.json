@@ -11,3 +11,8 @@
     "mssql": "^9.0.1"
   },
   "engines": {
+    "node": ">=16"
+  },
+  "author": "Maanit Trivedi",
+  "license": "MIT"
+}
