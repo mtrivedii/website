@@ -8,8 +8,7 @@ module.exports = async function (context, req) {
   if (!email || !password) {
     context.res = {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Email and password required' })
+      body: { error: 'Email and password required' }
     };
     return;
   }
@@ -24,8 +23,7 @@ module.exports = async function (context, req) {
     if (existing.recordset.length > 0) {
       context.res = {
         status: 409,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'User already exists' })
+        body: { error: 'User already exists' }
       };
       return;
     }
@@ -39,15 +37,14 @@ module.exports = async function (context, req) {
 
     context.res = {
       status: 201,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'User registered successfully' })
+      body: { message: 'User registered successfully' }
     };
   } catch (err) {
-    console.error(err);
+    console.error('🔥 Registration failed:', err); // Server log
+    context.log.error('Registration function error:', err); // Azure Functions log
     context.res = {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Internal Server Error' })
+      body: { error: 'Internal error: ' + err.message }
     };
   }
 };
