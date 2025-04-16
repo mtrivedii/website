@@ -18,17 +18,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 🔵 FRONTEND DEPLOYMENT
       - name: Upload frontend to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
           app-name: maanit-website
-          package: .
+          package: ./
           slot-name: production
 
-      # 🔴 BACKEND DEPLOYMENT (Corrected to use only /api)
       - name: Upload backend to Azure Function App
         uses: Azure/functions-action@v1
         with:
           app-name: maanit-func
           package: ./api
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
