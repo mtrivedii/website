@@ -1,6 +1,7 @@
 {
   "bindings": [
     {
+      "name": "req",
       "authLevel": "anonymous",
       "type": "httpTrigger",
       "direction": "in",
@@ -8,9 +9,10 @@
       "route": "register"
     },
     {
+      "name": "res",
       "type": "http",
-      "direction": "out",
-      "name": "res"
+      "direction": "out"
     }
-  ]
+  ],
+  "scriptFile": "index.js"  // Explicitly point to index.js if needed
 }
