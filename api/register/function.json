@@ -14,5 +14,5 @@
       "direction": "out"
     }
   ],
-  "scriptFile": "index.js"  // Explicitly point to index.js if needed
+  "scriptFile": "index.js"  
 }
