@@ -27,12 +27,12 @@
       const confirmPassword = document.getElementById("confirmPassword").value;
 
       if (password !== confirmPassword) {
-        alert("Passwords do not match.");
+        alert("Passwords do not match");
         return;
       }
 
       try {
-        const res = await fetch('/api/register', {
+        const res = await fetch('https://maanit-func.azurewebsites.net/api/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -44,13 +44,14 @@
         const data = await res.json();
 
         if (res.ok) {
-          alert(data.message || 'Registration successful!');
+          alert(data.message || 'Registration successful');
           window.location.href = 'login.html';
         } else {
-          alert(data.error || 'Registration failed.');
+          alert(data.error || 'Registration failed');
         }
       } catch (err) {
-        alert("Failed to connect to server.");
+        console.error(err);
+        alert('Failed to connect to server.');
       }
     });
   </script>
