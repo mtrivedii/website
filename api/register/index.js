@@ -1,6 +1,6 @@
 const { getConnection } = require('../db');
 const sql = require('mssql');
-const bcrypt = require('bcrypt'); // Optional, but recommended
+const bcrypt = require('bcrypt');
 
 module.exports = async function (context, req) {
   const { email, password } = req.body || {};
@@ -28,7 +28,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10); // 🔐
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.request()
       .input('email', sql.VarChar, email)
@@ -40,10 +40,10 @@ module.exports = async function (context, req) {
       body: { message: 'User registered successfully' }
     };
   } catch (err) {
-    console.error(err); // Only for dev
+    console.error('❌ Registration error:', err);
     context.res = {
       status: 500,
-      body: { error: 'Registration failed' }
+      body: { error: err.message || 'Registration failed' } // TEMPORARY: remove `err.message` later
     };
   }
 };
