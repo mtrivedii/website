@@ -4,6 +4,6 @@
   "main": "index.js",
   "dependencies": {
     "@azure/identity": "^4.1.0",
-    "mssql": "^10.0.0"
+    "mssql": "^11.0.1"
   }
 }
