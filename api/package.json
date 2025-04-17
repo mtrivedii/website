@@ -4,7 +4,7 @@
   "description": "Backend API using Azure Functions + Managed Identity",
   "main": "register/index.js",
   "dependencies": {
-    "bcrypt": "^5.1.0",
+    "bcryptjs": "^2.4.3",
     "mssql": "^11.0.1"
   },
   "engines": {
