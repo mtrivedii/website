@@ -18,11 +18,16 @@ jobs:
           cd api
           npm install
 
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Upload frontend to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
           app-name: maanit-website
-          package: ./ 
+          package: ./
           slot-name: production
 
       - name: Upload backend to Azure Function App
