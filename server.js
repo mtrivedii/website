@@ -27,7 +27,7 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'register.h
 
 // API endpoints
 app.post('/api/login', loginHandler);
-app.post('/api/register', registerHandler);
+app.post('/register', registerHandler);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
