@@ -2,9 +2,9 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 
-// Load API logic
-const loginHandler = require('./api/login/index');
-const registerHandler = require('./api/register/index');
+// ✅ Load API logic with correct paths from /api
+const loginHandler = require('./api/login/index.js');
+const registerHandler = require('./api/register/index.js');
 
 const app = express();
 const port = process.env.PORT || 8080;
