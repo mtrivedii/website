@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 
 // ✅ Load API logic with correct paths from /api
 const loginHandler = require('./api/login/index.js');
-const registerHandler = require('./register/index.js');
+const registerHandler = require('./api/register/index.js');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -27,7 +27,7 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'register.h
 
 // API endpoints
 app.post('/api/login', loginHandler);
-app.post('/register', registerHandler);
+app.post('/api/register', registerHandler);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
