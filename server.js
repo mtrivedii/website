@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 
 // Load API logic
 const loginHandler = require('./api/login/index');
-const registerHandler = require('./api/register/index');
+const registerHandler = require('./register/index'); // ✅ fixed path
 
 const app = express();
 const port = process.env.PORT || 8080;
