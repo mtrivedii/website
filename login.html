@@ -1,43 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login - Secure Azure App</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="container">
-    <h1>🔐 Login</h1>
-    <form id="loginForm">
-      <input type="email" placeholder="Email" required id="email" /><br/>
-      <input type="password" placeholder="Password" required id="password" /><br/>
-      <button class="btn" type="submit">Login</button>
-    </form>
+try {
+  const res = await fetch('https://maanit-func.azurewebsites.net/api/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email, password })
+  });
 
-    <p>Don’t have an account? <a href="register.html">Register here</a></p>
-    <p><a href="index.html">← Back to Welcome</a></p>
-  </div>
+  let data;
+  try {
+    const text = await res.text();
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    alert("Server returned an invalid response.");
+    return;
+  }
 
-  <script>
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-
-      const res = await fetch('https://maanit-func.azurewebsites.net/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': 'bruddasecret123'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-      alert(data.message || data.error);
-    });
-  </script>
-</body>
-</html>
+  if (!res.ok) {
+    alert(data.error || "Login failed.");
+  } else {
+    alert(data.message || "Login successful!");
+    // redirect if needed
+  }
+} catch (err) {
+  console.error("Fetch error:", err);
+  alert("Could not connect to the server.");
+}
