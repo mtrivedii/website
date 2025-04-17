@@ -1,7 +1,7 @@
 {
   "name": "secure-azure-function-backend",
   "version": "1.0.0",
-  "description": "Backend API using Azure Functions + Managed Identity",
+  "description": "Backend API using Express and Azure SQL",
   "main": "register/index.js",
   "dependencies": {
     "bcryptjs": "^2.4.3",
