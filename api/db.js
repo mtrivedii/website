@@ -1,4 +1,4 @@
- const sql = require('mssql');
+const sql = require('mssql');
 const { DefaultAzureCredential } = require('@azure/identity');
 
 const credential = new DefaultAzureCredential();
@@ -15,12 +15,9 @@ async function getConnection() {
     server: process.env.DB_SERVER,       // e.g. maanit-server.database.windows.net
     database: process.env.DB_NAME,       // e.g. maanit-sql-db
     options: {
-      encrypt: true
-    },
-    authentication: {
-      type: 'azure-active-directory-access-token'
-    },
-    token: accessToken
+      encrypt: true,
+      accessToken: accessToken           // 🔥 MUST be inside `options`
+    }
   };
 
   return sql.connect(config);
