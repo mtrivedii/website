@@ -9,7 +9,7 @@ try {
 }
 
 const sql = require('mssql');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 module.exports = async function (context, req) {
   context.log("register function invoked");
