@@ -2,34 +2,26 @@ console.log("🟢 login function loaded");
 
 const { getConnection } = require('../db');
 const sql = require('mssql');
-const bcrypt = require('bcryptjs'); // using bcryptjs for compatibility
+const bcrypt = require('bcryptjs'); // note: bcryptjs works cross-platform
 
-module.exports = async function (context, req) {
-  context.log("⚡ login triggered");
+module.exports = async (req, res) => {
+  console.log("⚡ login triggered");
 
   const { email, password } = req.body || {};
-  context.log("Received:", { email });
+  console.log("Received:", { email });
 
   if (!email || !password) {
-    context.res = {
-      status: 400,
-      body: { error: 'Email and password required' }
-    };
-    return;
+    return res.status(400).json({ error: 'Email and password required' });
   }
 
   let pool;
   try {
-    context.log("🔌 Connecting to DB");
+    console.log("🔌 Connecting to DB");
     pool = await getConnection();
-    context.log("✅ DB connected");
+    console.log("✅ DB connected");
   } catch (dbErr) {
-    context.log("❌ DB connection failed:", dbErr);
-    context.res = {
-      status: 500,
-      body: { error: 'Database connection failed' }
-    };
-    return;
+    console.error("❌ DB connection failed:", dbErr);
+    return res.status(500).json({ error: 'Database connection failed' });
   }
 
   try {
@@ -39,32 +31,19 @@ module.exports = async function (context, req) {
 
     const user = result.recordset[0];
     if (!user) {
-      context.res = {
-        status: 401,
-        body: { error: 'Invalid email or password' }
-      };
-      return;
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const match = await bcrypt.compare(password, user.password);
-
     if (!match) {
-      context.res = {
-        status: 401,
-        body: { error: 'Invalid email or password' }
-      };
-      return;
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    context.res = {
-      status: 200,
-      body: { message: 'Login successful' }
-    };
+    console.log("✅ Login successful");
+    return res.status(200).json({ message: 'Login successful' });
+
   } catch (err) {
-    context.log("🔥 Unexpected error:", err);
-    context.res = {
-      status: 500,
-      body: { error: 'Unexpected error', detail: err.message }
-    };
+    console.error("🔥 Unexpected error:", err);
+    return res.status(500).json({ error: 'Unexpected error', detail: err.message });
   }
 };
