@@ -1,4 +1,4 @@
-const { getConnection } = require('../db');
+const { getConnection } = require('../api/db');
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 
