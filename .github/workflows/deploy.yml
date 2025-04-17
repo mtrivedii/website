@@ -13,11 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Install backend dependencies
         run: |
           cd api
@@ -27,7 +22,7 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: maanit-website
-          package: ./
+          package: ./ 
           slot-name: production
 
       - name: Upload backend to Azure Function App
