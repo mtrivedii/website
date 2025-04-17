@@ -12,14 +12,16 @@ async function getConnection() {
   const accessToken = await getAccessToken();
 
   const config = {
-    server: process.env.DB_SERVER,       // e.g. maanit-server.database.windows.net
-    database: process.env.DB_NAME,       // e.g. maanit-sql-db
-    authentication: {
-      type: 'azure-active-directory-access-token'
-    },
+    server: process.env.DB_SERVER,       // e.g. "maanit-server.database.windows.net"
+    database: process.env.DB_NAME,       // e.g. "maanit-sql-db"
     options: {
-      encrypt: true,
-      token: accessToken
+      encrypt: true
+    },
+    authentication: {
+      type: 'azure-active-directory-access-token',
+      options: {
+        token: accessToken
+      }
     }
   };
 
