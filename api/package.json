@@ -4,11 +4,7 @@
   "description": "Backend API using Express and Azure SQL",
   "main": "register/index.js",
   "dependencies": {
-<<<<<<< HEAD
     "bcryptjs": "^3.0.2",
-=======
-    "bcryptjs": "^2.4.3",
->>>>>>> fd2425374e380b02767c262ecff18c0ee114c720
     "mssql": "^11.0.1"
   },
   "engines": {
