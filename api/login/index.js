@@ -3,6 +3,8 @@ const sql = require('mssql');
 const bcrypt = require('bcryptjs');
 
 module.exports = async function (context, req) {
+  context.log("🟢 login function triggered");
+
   const { email, password } = req.body || {};
 
   if (!email || !password) {
@@ -13,11 +15,22 @@ module.exports = async function (context, req) {
     return;
   }
 
+  let pool;
   try {
-    const pool = await getConnection();
+    pool = await getConnection();
+  } catch (err) {
+    context.log("❌ DB connection failed:", err);
+    context.res = {
+      status: 500,
+      body: { error: 'Database connection failed' }
+    };
+    return;
+  }
+
+  try {
     const result = await pool.request()
       .input('email', sql.VarChar, email)
-      .query('SELECT * FROM Users WHERE email = @email');
+      .query('SELECT * FROM users WHERE email = @email');
 
     const user = result.recordset[0];
 
@@ -29,9 +42,9 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
-    if (!passwordMatch) {
+    if (!isMatch) {
       context.res = {
         status: 401,
         body: { error: 'Invalid email or password' }
@@ -44,9 +57,10 @@ module.exports = async function (context, req) {
       body: { message: 'Login successful' }
     };
   } catch (err) {
+    context.log("🔥 Unexpected error during login:", err);
     context.res = {
       status: 500,
-      body: { error: 'Internal server error', detail: err.message }
+      body: { error: 'Login failed', detail: err.message }
     };
   }
 };
