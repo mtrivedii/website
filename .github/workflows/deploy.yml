@@ -27,7 +27,7 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: maanit-website
-          package: ./
+          package: ./ # Make sure index.html is in the root
           slot-name: production
 
       - name: Upload backend to Azure Function App
