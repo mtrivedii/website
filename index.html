@@ -1,16 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Welcome - Secure Azure App</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Secure Azure Web App</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>👋 Welcome</h1>
-    <p>This is a secure Azure-hosted web application.</p>
-    <a class="btn" href="login.html">Enter</a>
+  <div class="box">
+    <h1>Welcome 👋</h1>
+    <p id="user-info">Loading user info...</p>
+    <a class="logout" href="/.auth/logout?post_logout_redirect_uri=/">Log Out</a>
   </div>
+
+  <script>
+    fetch("/.auth/me")
+      .then(res => res.json())
+      .then(data => {
+        const user = data[0]?.userClaims?.find(c => c.typ === "name")?.val ||
+                     data[0]?.userClaims?.find(c => c.typ === "preferred_username")?.val ||
+                     "User";
+        document.getElementById("user-info").innerText = `Hello, ${user}`;
+      })
+      .catch(err => {
+        console.error("Auth check failed", err);
+        document.getElementById("user-info").innerText = "Authentication error.";
+      });
+  </script>
 </body>
 </html>
