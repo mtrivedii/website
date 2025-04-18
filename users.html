@@ -18,13 +18,18 @@
 
     <hr>
 
-    <h3>⚠️ Dev Debug Links (remove before production)</h3>
-    <ul>
-      <li><a href="/api/user?id=1' OR '1'='1">Try SQLi: `' OR '1'='1`</a></li>
-      <li><a href="/api/user?id=1;DROP TABLE users;--">Try SQLi: `DROP TABLE`</a></li>
-      <li><a href="/api/user?id=admin'--">Try SQLi: `admin'--`</a></li>
-      <li><a href="/api/user?id=9999">Invalid User (Scan)</a></li>
-    </ul>
+    <!-- 🕵️ Hidden payloads for curious attackers -->
+    <!-- 
+      /api/user?id=1' OR '1'='1
+      /api/user?id=1;DROP TABLE users
+      /api/user?id=admin'--
+      /api/user?id=9999
+    -->
+
+    <form action="/api/user" method="GET" style="margin-top: 2rem;">
+      <input type="text" name="id" placeholder="Search by User ID" required />
+      <button class="button" type="submit">Search</button>
+    </form>
 
     <p><a class="button" href="index.html">← Back</a></p>
   </div>
