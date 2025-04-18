@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>User Directory</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>👥 User Directory</h1>
+    <p>Click on a user to view their profile:</p>
+
+    <ul>
+      <li><a href="/api/user?id=1">User 1</a></li>
+      <li><a href="/api/user?id=2">User 2</a></li>
+      <li><a href="/api/user?id=3">User 3</a></li>
+    </ul>
+
+    <hr>
+
+    <h3>⚠️ Dev Debug Links (remove before production)</h3>
+    <ul>
+      <li><a href="/api/user?id=1' OR '1'='1">Try SQLi: `' OR '1'='1`</a></li>
+      <li><a href="/api/user?id=1;DROP TABLE users;--">Try SQLi: `DROP TABLE`</a></li>
+      <li><a href="/api/user?id=admin'--">Try SQLi: `admin'--`</a></li>
+      <li><a href="/api/user?id=9999">Invalid User (Scan)</a></li>
+    </ul>
+
+    <p><a class="button" href="index.html">← Back</a></p>
+  </div>
+</body>
+</html>
