@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload Document</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>📁 Upload Document</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="file" id="file" required />
+      <button class="button" type="submit">Upload</button>
+    </form>
+    <p id="uploadMessage" style="margin-top: 1rem;"></p>
+    <p><a class="button" href="index.html">← Back</a></p>
+  </div>
+
+  <script>
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = document.getElementById("file").files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+      document.getElementById("uploadMessage").innerText = data.message || "Upload complete.";
+    });
+  </script>
+</body>
+</html>
