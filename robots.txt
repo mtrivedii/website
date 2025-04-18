@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin
+Disallow: /api/user?id=1' OR '1'='1
+Disallow: /api/user?id=1;DROP TABLE users
+Disallow: /api/user?id=9999
