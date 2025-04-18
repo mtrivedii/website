@@ -13,8 +13,16 @@
       "rewrite": "/scoreboard.html"
     },
     {
+      "route": "/upload",
+      "rewrite": "/upload.html"
+    },
+    {
+      "route": "/error",
+      "rewrite": "/error.html"
+    },
+    {
       "route": "/secrets/*",
-      "rewrite": "/secrets/dev-notes.txt"
+      "rewrite": "/api/log-and-redirect"
     }
   ],
   "mimeTypes": {
