@@ -4,6 +4,6 @@
   "main": "index.js",
   "dependencies": {
     "@azure/identity": "^4.1.0",
-    "tedious": "^15.2.0"
+    "tedious": "^15.1.1"
   }
 }
