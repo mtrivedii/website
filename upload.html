@@ -23,13 +23,30 @@
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData
-      });
+      const msgBox = document.getElementById("uploadMessage");
+      msgBox.innerText = "Uploading...";
 
-      const data = await res.json();
-      document.getElementById("uploadMessage").innerText = data.message || "Upload complete.";
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        let message = "";
+
+        if (contentType.includes("application/json")) {
+          const data = await res.json();
+          message = data.message || data.error || "Upload complete.";
+        } else {
+          const text = await res.text();
+          message = `Upload failed: ${text}`;
+        }
+
+        msgBox.innerText = message;
+      } catch (err) {
+        msgBox.innerText = `Upload error: ${err.message}`;
+      }
     });
   </script>
 </body>
