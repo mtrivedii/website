@@ -1,40 +1,32 @@
-/* Form Input Fields */
-input[type="email"],
-input[type="password"],
-input[type="text"] {
-  width: 100%;
-  max-width: 300px;
-  padding: 10px;
-  margin: 10px 0;
-  background-color: #222;
-  border: 2px solid #0ff;
-  color: #fff;
-  font-size: 1rem;
-  border-radius: 6px;
-  outline: none;
+/* General Page Styles */
+body {
+  background-color: #111;
+  color: #eee;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 2rem;
+  text-align: center;
 }
 
-input::placeholder {
-  color: #aaa;
+/* Headers */
+h1, h2, h3 {
+  color: #00e6b8;
+  margin-bottom: 1rem;
 }
 
-/* Button Styling (inherits your existing .button class) */
-.button {
-  background-color: #00e6b8;
-  color: black;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  font-weight: bold;
-  text-decoration: none;
-  transition: background-color 0.3s ease;
+h1 {
+  font-size: 2.5rem;
 }
 
-.button:hover {
-  background-color: #00ffc8;
+h2 {
+  font-size: 2rem;
 }
 
-/* Link Styling */
+h3 {
+  font-size: 1.2rem;
+}
+
+/* Links */
 a {
   color: #33ccff;
   text-decoration: none;
@@ -46,13 +38,87 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Headings for fun */
-h1, h2, h3 {
-  color: #00e6b8;
+/* Buttons */
+.button {
+  background-color: #00e6b8;
+  color: black;
+  padding: 10px 20px;
+  margin: 10px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
 }
 
+.button:hover {
+  background-color: #00ffc8;
+}
+
+/* Container */
+.container {
+  max-width: 600px;
+  margin: auto;
+}
+
+/* Input Fields */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  max-width: 320px;
+  padding: 12px;
+  margin: 8px 0;
+  border: 2px solid #00e6b8;
+  background-color: #222;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+}
+
+input::placeholder {
+  color: #aaa;
+}
+
+/* Horizontal Rule */
 hr {
   border: 0;
-  border-top: 1px solid #777;
-  margin: 20px 0;
+  border-top: 1px solid #444;
+  margin: 2rem 0;
+}
+
+/* List Styling */
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+ul li {
+  margin: 0.5rem 0;
+}
+
+/* Warning Text */
+.warning {
+  color: #ffcc00;
+  font-weight: bold;
+}
+
+/* Spinner (if used in login.html) */
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #00e6b8;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  animation: spin 1s linear infinite;
+  margin: 1rem auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
