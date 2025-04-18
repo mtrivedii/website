@@ -1,30 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Secure Azure Web App</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secure Login</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="box">
-    <h1>Welcome 👋</h1>
-    <p id="user-info">Loading user info...</p>
-    <a class="logout" href="/.auth/logout?post_logout_redirect_uri=/">Log Out</a>
+  <div class="container">
+    <h2>Login</h2>
+    <form id="login-form">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit" class="btn">Login</button>
+    </form>
+    <p>Don't have an account? <a href="register.html">Register here</a></p>
+    <div id="message"></div>
   </div>
 
   <script>
-    fetch("/.auth/me")
-      .then(res => res.json())
-      .then(data => {
-        const user = data[0]?.userClaims?.find(c => c.typ === "name")?.val ||
-                     data[0]?.userClaims?.find(c => c.typ === "preferred_username")?.val ||
-                     "User";
-        document.getElementById("user-info").innerText = `Hello, ${user}`;
-      })
-      .catch(err => {
-        console.error("Auth check failed", err);
-        document.getElementById("user-info").innerText = "Authentication error.";
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('https://maanit-func.azurewebsites.net/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
+
+      const data = await res.json();
+      document.getElementById('message').textContent = data.message || 'Login attempt failed';
+    });
   </script>
 </body>
 </html>
