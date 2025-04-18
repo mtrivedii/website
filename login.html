@@ -9,6 +9,7 @@
     #loading {
       display: none;
       margin-top: 1rem;
+      text-align: center;
     }
     .spinner {
       border: 4px solid #f3f3f3;
@@ -26,6 +27,8 @@
     #message {
       margin-top: 1rem;
       font-weight: bold;
+      text-align: center;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -60,4 +63,48 @@
       "Access granted... just kidding 😏",
       "Nice try. You're not getting in.",
       "Lol. Did you really think that'd work?",
-      "Your login has been forwarded
+      "Your login has been forwarded to the cybersecurity team 🚨",
+      "Your IP address has been added to our red team leaderboard 🕵️‍♂️",
+      "Next time, try 'admin' / 'admin123' 😉"
+    ];
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      // Show spinner and random hint
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("message").innerText = "";
+      document.getElementById("hint").innerText = hints[Math.floor(Math.random() * hints.length)];
+
+      // Track attempts locally
+      const count = parseInt(localStorage.getItem("honeypot-attempts") || "0") + 1;
+      localStorage.setItem("honeypot-attempts", count);
+
+      await new Promise(r => setTimeout(r, 1500)); // fake delay
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        const msgIndex = Math.min(count - 1, messages.length - 1);
+        const hackerScore = data.score || ((email.length * 42 + count * 7) % 1000);
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("message").innerText = `${messages[msgIndex]}\nHacker Score: ${hackerScore}`;
+      } catch (err) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("message").innerText = "Connection error. Try again later.";
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
