@@ -27,7 +27,7 @@
       msgBox.innerText = "Uploading...";
 
       try {
-        const res = await fetch("/api/upload", {
+        const res = await fetch("https://maanit-func.azurewebsites.net/api/upload", {
           method: "POST",
           body: formData
         });
