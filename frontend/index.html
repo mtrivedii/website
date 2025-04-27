@@ -10,8 +10,18 @@
   <h1>Welcome to Maanit's Web App</h1>
   <p>Good Luck, LOL.</p>
   <div>
-    <a href="/register.html" class="button">Register</a>
-    <a href="/login.html" class="button">Login</a>
+    <!-- Register just kicks off the same AAD login flow -->
+    <a 
+      href="/.auth/login/aad?post_login_redirect_uri=/" 
+      class="button"
+    >Register</a>
+
+    <!-- Login uses the AAD login flow too -->
+    <a 
+      href="/.auth/login/aad?post_login_redirect_uri=/" 
+      class="button"
+    >Login</a>
+
     <a href="/users.html" class="button">User Directory</a> 
     <a href="/upload.html" class="button">File Upload</a>
     <a href="/scoreboard.html" class="button">Scoreboard</a> 
