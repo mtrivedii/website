@@ -1,0 +1,17 @@
+# Ignore generated files
+*.js.map
+*.ts
+
+# Ignore version control & local settings
+.git*
+.vscode
+local.settings.json
+
+# Ignore docs & temp
+test
+getting_started.md
+
+# Ignore large dev-only dependencies
+node_modules/@types/
+node_modules/azure-functions-core-tools/
+node_modules/typescript/
