@@ -24,11 +24,11 @@
     },
     {
       "route": "/api/scoreboard",
-      "allowedRoles": ["anonymous", "authenticated"]
+      "allowedRoles": ["anonymous","authenticated"]
     },
     {
       "route": "/api/upload",
-      "allowedRoles": ["anonymous", "authenticated"]
+      "allowedRoles": ["anonymous","authenticated"]
     },
     {
       "route": "/*",
