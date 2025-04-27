@@ -10,11 +10,29 @@
     }
   },
   "routes": [
-    { "route": "/admin.html",        "allowedRoles": ["admin"] },
-    { "route": "/users.html",        "allowedRoles": ["authenticated"] },
-    { "route": "/api/users",         "allowedRoles": ["authenticated"] },
-    { "route": "/api/scoreboard",    "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/api/upload",        "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/*",                 "allowedRoles": ["anonymous"] }
+    {
+      "route": "/admin.html",
+      "allowedRoles": ["admin"]
+    },
+    {
+      "route": "/users.html",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/users",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/api/scoreboard",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/api/upload",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["anonymous"]
+    }
   ]
 }
