@@ -94,8 +94,8 @@ module.exports = async function (context, req) {
     context.res = {
       status: 500,
       body: {
-        message: err.message,
-        detail: err.originalError?.message || null
+        message: 'Internal server error',
+        detail: err.originalError?.message || err.message
       }
     };
   }
