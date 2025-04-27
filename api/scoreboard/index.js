@@ -1,51 +1,46 @@
 const sql  = require("mssql");
 const Joi  = require("joi");
 
-// ── 1) Validate POST body to prevent injection ───────────────
+// validate POST body
 const scoreSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   score:    Joi.number().integer().min(0).required()
 });
 
-// ── 2) DB config via Managed Identity ────────────────────────
+// DB config via Managed Identity
 const dbConfig = {
-  server:   process.env.DB_SERVER,
+  server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
   authentication: { type: "azure-active-directory-msi-app-service" },
   options: {
     encrypt: true,
     trustServerCertificate: true,
-    // ensure the driver gives up if SQL is unreachable
-    connectTimeout: 15000,    // 15s to make TCP+TLS handshake
-    requestTimeout: 300000    // 5m per query (matches your functionTimeout)
+    connectTimeout: 15000,
+    requestTimeout: 300000
   },
-  pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000
-  }
+  pool: { max:10, min:0, idleTimeoutMillis:30000 }
 };
 
-// ── 3) Create ONE global pool promise ────────────────────────
+// one global poolPromise
 const poolPromise = new sql.ConnectionPool(dbConfig)
   .connect()
-  .then(pool => {
+  .then(p => {
+    p.on("error", e => {
+      console.error("[scoreboard] pool error", e);
+    });
     console.log("[scoreboard] pool created");
-    pool.on("error", err => console.error("[scoreboard] pool error", err));
-    return pool;
+    return p;
   })
-  .catch(err => {
-    console.error("[scoreboard] pool creation failed", err);
-    throw err;
+  .catch(e => {
+    console.error("[scoreboard] pool creation failed", e);
+    throw e;
   });
 
-// ── 4) The Function ──────────────────────────────────────────
-module.exports = async function (context, req) {
+module.exports = async function(context, req) {
   const id = context.executionContext.invocationId;
-  context.log(`[${id}] scoreboard start (${req.method})`);
+  context.log(`[${id}] scoreboard ${req.method}`);
 
   try {
-    // grab the already‐connecting pool (or await its creation)
     const pool = await poolPromise;
 
     if (req.method === "GET") {
@@ -58,10 +53,7 @@ module.exports = async function (context, req) {
     if (req.method === "POST") {
       const { error, value } = scoreSchema.validate(req.body);
       if (error) {
-        context.res = {
-          status: 400,
-          body: { message: error.details.map(d => d.message).join("; ") }
-        };
+        context.res = { status: 400, body: { message: error.details.map(d=>d.message).join("; ") } };
         return;
       }
       await pool.request()
@@ -76,9 +68,6 @@ module.exports = async function (context, req) {
   }
   catch (err) {
     context.log.error(`[${id}] ERROR`, err);
-    context.res = {
-      status: 500,
-      body: { message: "Internal server error" }
-    };
+    context.res = { status: 500, body: { message: "Internal server error" } };
   }
 };
