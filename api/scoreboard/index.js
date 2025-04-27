@@ -1,28 +1,36 @@
 const sql  = require('mssql');
 const Joi  = require('joi');
 
-// ============================================================================
-//  Input Validation (OWASP Top 10 Proactive Controls)
-// ============================================================================
+// ----------------------------------------------------------------------------
+// Input validation
 const scoreSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   score:    Joi.number().integer().min(0).required()
 }).options({ abortEarly: false });
 
-// ============================================================================
-//  Authentication + Encryption + PoLP
-// ============================================================================
-// Service Principal secret fallback (Static Web App)
-// – Make sure AAD_CLIENT_ID, AAD_CLIENT_SECRET, AAD_TENANT_ID are in env vars
+// ----------------------------------------------------------------------------
+// Read + validate our SP credentials from env
+const CLIENT_ID     = process.env.AAD_CLIENT_ID;
+const CLIENT_SECRET = process.env.AAD_CLIENT_SECRET;
+const TENANT_ID     = process.env.AAD_TENANT_ID;
+
+if (!CLIENT_ID || !CLIENT_SECRET || !TENANT_ID) {
+  throw new Error(
+    'Missing one of AAD_CLIENT_ID, AAD_CLIENT_SECRET or AAD_TENANT_ID in environment'
+  );
+}
+
+// ----------------------------------------------------------------------------
+// DB config using service principal
 const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
   authentication: {
     type: 'azure-active-directory-service-principal-secret',
     options: {
-      clientId:     process.env.AAD_CLIENT_ID,
-      clientSecret: process.env.AAD_CLIENT_SECRET,
-      tenantId:     process.env.AAD_TENANT_ID
+      clientId:     String(CLIENT_ID),
+      clientSecret: String(CLIENT_SECRET),
+      tenantId:     String(TENANT_ID)
     }
   },
   options: {
@@ -31,87 +39,63 @@ const dbConfig = {
   }
 };
 
-// ============================================================================
-//  Connection Pool (reused across invocations for performance)
-// ============================================================================
+// ----------------------------------------------------------------------------
+// Global pool for perf
 let poolPromise = sql.connect(dbConfig)
   .then(pool => {
-    console.log('[scoreboard] Global connection pool created');
-    pool.on('error', err => console.error('[scoreboard] Pool error:', err));
+    console.log('[scoreboard] Pool created');
+    pool.on('error', e => console.error('[scoreboard] Pool error', e));
     return pool;
   })
-  .catch(err => {
-    console.error('[scoreboard] Global pool creation failed:', err);
-    throw err;
+  .catch(e => {
+    console.error('[scoreboard] Pool creation failed', e);
+    throw e;
   });
 
-// ============================================================================
-//  Fail-Safely + Logging & Monitoring
-// ============================================================================
+// ----------------------------------------------------------------------------
+// Azure Function
 module.exports = async function (context, req) {
-  const invocationId = context.executionContext.invocationId;
-  context.log.info(`[${invocationId}] Invocation started`);
+  const id = context.executionContext.invocationId;
+  context.log.info(`[${id}] Start`);
 
   try {
-    context.log.info(`[${invocationId}] Connecting to SQL: ${process.env.DB_SERVER}/${process.env.DB_NAME}`);
     const pool = await poolPromise;
-    context.log.info(`[${invocationId}] Connected to DB`);
+    context.log.info(`[${id}] DB connected`);
 
     if (req.method === 'GET') {
-      context.log.info(`[${invocationId}] Handling GET`);
-      const result = await pool.request()
+      context.log.info(`[${id}] GET`);
+      const { recordset } = await pool
+        .request()
         .query('SELECT TOP (10) username, score FROM Scoreboard ORDER BY score DESC');
-
-      context.res = {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: result.recordset
-      };
-      context.log.info(`[${invocationId}] GET completed`);
-      return;
+      return context.res = { status: 200, body: recordset };
     }
 
     if (req.method === 'POST') {
-      context.log.info(`[${invocationId}] Handling POST`);
+      context.log.info(`[${id}] POST`);
       const { error, value } = scoreSchema.validate(req.body);
       if (error) {
-        const msg = error.details.map(e => e.message).join('; ');
-        context.log.warn(`[${invocationId}] Validation failed: ${msg}`);
-        context.res = { status: 400, body: { message: msg } };
-        return;
+        const msg = error.details.map(d => d.message).join('; ');
+        context.log.warn(`[${id}] Validation failed: ${msg}`);
+        return context.res = { status: 400, body: { message: msg } };
       }
-
-      await pool.request()
+      await pool
+        .request()
         .input('username', sql.NVarChar, value.username)
         .input('score',    sql.Int,      value.score)
         .query('INSERT INTO Scoreboard (username, score) VALUES (@username, @score)');
-
-      context.res = { status: 201, body: { message: 'Score added successfully' } };
-      context.log.info(`[${invocationId}] POST completed for ${value.username}`);
-      return;
+      return context.res = { status: 201, body: { message: 'Score added' } };
     }
 
-    context.log.warn(`[${invocationId}] Unsupported method: ${req.method}`);
+    context.log.warn(`[${id}] Method not allowed: ${req.method}`);
     context.res = { status: 405, body: 'Method Not Allowed' };
   }
   catch (err) {
-    // ========================================================================
-    // Detailed error logging
-    // ========================================================================
-    context.log.error(
-      `[${invocationId}] FULL ERROR:`,
-      JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
-    );
-    context.log.error(`[${invocationId}] ORIGINAL error:`, err.originalError);
-
-    // ========================================================================
-    // Surface inner error message for debugging
-    // ========================================================================
+    context.log.error(`[${id}] ERROR`, err);
     context.res = {
       status: 500,
       body: {
         message: err.message,
-        detail: err.originalError?.message || err.originalError || null
+        detail: err.originalError?.message || null
       }
     };
   }
