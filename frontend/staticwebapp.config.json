@@ -1,1 +1,38 @@
-{"navigationFallback":{"rewrite":"index.html","exclude":["/api/*"]},"routes":[{"route":"/admin","rewrite":"/admin.html"},{"route":"/scoreboard","rewrite":"/scoreboard.html"},{"route":"/upload","rewrite":"/upload.html"},{"route":"/error","rewrite":"/error.html"},{"route":"/secrets/*","rewrite":"/api/log-and-redirect"}],"mimeTypes":{".json":"application/json"}}
+{
+  "auth": {
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/<YOUR_TENANT_ID>",
+          "clientIdSettingName": "AAD_CLIENT_ID"
+        }
+      }
+    }
+  },
+  "routes": [
+    {
+      "route": "/admin.html",
+      "allowedRoles": ["admin"]
+    },
+    {
+      "route": "/users.html",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/users",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/scoreboard",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/api/upload",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ]
+}
