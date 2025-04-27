@@ -1,74 +1,80 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - maanit-web-api
+name: Build & Deploy Node.js → App Service (maanit-web-api)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_RESOURCE_GROUP:  ${{ secrets.AZURE_RESOURCE_GROUP }}    # optional, if you use RG in your login scope
+  AZURE_WEBAPP_NAME:     maanit-web-api
+  NODE_VERSION:          '20.x'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
-
+    outputs:
+      artifact-path: ${{ steps.zip.outputs.zipfile }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: npm install, build, and test
+      - name: Install & Build
         run: |
-          npm install
+          npm ci
           npm run build --if-present
-          npm run test --if-present
+          npm run test  --if-present
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: Zip for deploy
+        id: zip
+        run: |
+          ZIP=webapp.zip
+          zip -qr $ZIP . -x ".git/*" "node_modules/*"
+          echo "::set-output name=zipfile::$ZIP"
 
-      - name: Upload artifact for deployment job
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: release.zip
+          name: webapp-artifact
+          path: ${{ steps.zip.outputs.zipfile }}
 
   deploy:
-    runs-on: ubuntu-latest
     needs: build
+    runs-on: ubuntu-latest
     environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write      # needed for OIDC
+      contents: read       # for checkout/download-artifact
 
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: webapp-artifact
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-      
-      - name: Login to Azure
+      - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_4B23799204DA47BEAEE13B0681D29BFA }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_7797DA89623947C4AED7BDE8195B0B25 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B559012825CB43A1AA3EBA1F0AECC92A }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          # you can optionally scope down to a single RG:
+          # scope: /subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.AZURE_RESOURCE_GROUP }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to App Service
+        id: deploy
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'maanit-web-api'
-          slot-name: 'Production'
-          package: .
-          
+          app-name:  ${{ env.AZURE_WEBAPP_NAME }}
+          package:   ${{ needs.build.outputs.artifact-path }}
+          slot-name: production    # omit if you don’t use slots
