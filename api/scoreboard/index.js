@@ -7,11 +7,11 @@ const scoreSchema = Joi.object({
   score:    Joi.number().integer().min(0).required()
 });
 
-// DB config via Managed Identity
+// DB config via Managed Identity (App Service MSI)
 const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
-  authentication: { type: 'azure-active-directory-msi' },
+  authentication: { type: 'azure-active-directory-msi-app-service' },
   options: { encrypt: true }
 };
 
@@ -26,7 +26,6 @@ module.exports = async function (context, req) {
     context.log('[scoreboard] connected to database');
 
     if (req.method === 'GET') {
-      // Read top 10 scores
       const result = await sql.query`
         SELECT TOP (10) username, score
         FROM Scoreboard
@@ -41,43 +40,27 @@ module.exports = async function (context, req) {
     }
 
     if (req.method === 'POST') {
-      // Validate input
       const { error, value } = scoreSchema.validate(req.body);
       if (error) {
         context.log.warn('[scoreboard] validation failed:', error.details[0].message);
-        context.res = {
-          status: 400,
-          body: { message: error.details[0].message }
-        };
+        context.res = { status: 400, body: { message: error.details[0].message } };
         return;
       }
-
-      // Parameterized insert
       await sql.query`
         INSERT INTO Scoreboard (username, score)
         VALUES (${value.username}, ${value.score})
       `;
-      context.res = {
-        status: 201,
-        body: { message: 'Score added' }
-      };
+      context.res = { status: 201, body: { message: 'Score added' } };
       return;
     }
 
-    // Method not allowed
     context.res = { status: 405, body: 'Method Not Allowed' };
   }
   catch (err) {
-    // Log the full error
     context.log.error('[scoreboard] ERROR:', err);
-    // DEBUG: return the real error for diagnosis
     context.res = {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        error: err.message,
-        stack: err.stack
-      }
+      body: { message: 'Internal server error' }
     };
   }
 };
