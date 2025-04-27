@@ -2,28 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
     <h1>👥 User Directory</h1>
-    <p>Click on a user to view their profile:</p>
-
-    <ul>
-      <li><a href="/api/user?id=1">User 1</a></li>
-      <li><a href="/api/user?id=2">User 2</a></li>
-      <li><a href="/api/user?id=3">User 3</a></li>
-    </ul>
-
-    <hr>
-
-    <form action="/api/user" method="GET" style="margin-top: 2rem;">
-      <input type="text" name="id" placeholder="Search by User ID" required />
-      <button class="button" type="submit">Search</button>
-    </form>
-
-    <p><a class="button" href="index.html">← Back</a></p>
+    <table id="users" class="leaderboard">
+      <thead>
+        <tr>
+          <th>ID</th><th>Email</th><th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="3">Loading…</td></tr>
+      </tbody>
+    </table>
+    <p><a class="button" href="index.html">← Home</a></p>
   </div>
+
+  <script>
+    async function loadUsers() {
+      const tbody = document.querySelector('#users tbody');
+      try {
+        const res = await fetch('/api/users');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const users = await res.json();
+
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3">No users found.</td></tr>';
+        } else {
+          tbody.innerHTML = users
+            .map(u => `
+              <tr>
+                <td>${u.id}</td>
+                <td>${u.email}</td>
+                <td>${u.Role || '–'}</td>
+              </tr>
+            `).join('');
+        }
+      } catch (e) {
+        console.error('Failed to load users:', e);
+        tbody.innerHTML = '<tr><td colspan="3">Error loading users.</td></tr>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadUsers);
+  </script>
 </body>
 </html>
