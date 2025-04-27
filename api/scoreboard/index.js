@@ -1,51 +1,78 @@
-const { DefaultAzureCredential } = require("@azure/identity");
-const { Connection, Request } = require("tedious");
+const sql  = require('mssql');
+const Joi  = require('joi');
 
-module.exports = async function (context, req) {
-    context.log('Scoreboard API triggered');
+// Joi schema for POSTing a new score
+const scoreSchema = Joi.object({
+  username: Joi.string().alphanum().min(3).max(30).required(),
+  score:    Joi.number().integer().min(0).required()
+});
 
-    const config = await getDbConfig();
-    const connection = new Connection(config);
-
-    connection.on('connect', err => {
-        if (err) {
-            context.res = { status: 500, body: "Database connection error" };
-            return;
-        }
-
-        const sqlQuery = "SELECT Username, Score FROM Scoreboard ORDER BY Score DESC";
-
-        const request = new Request(sqlQuery, (err, rowCount, rows) => {
-            if (err) {
-                context.res = { status: 500, body: "Query error" };
-            } else {
-                const result = rows.map(columns => {
-                    return {
-                        username: columns[0].value,
-                        score: columns[1].value
-                    };
-                });
-                context.res = { status: 200, body: result };
-            }
-            connection.close();
-        });
-
-        connection.execSql(request);
-    });
+// DB config via Managed Identity
+const dbConfig = {
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  authentication: { type: 'azure-active-directory-msi' },
+  options: { encrypt: true }
 };
 
-async function getDbConfig() {
-    const credential = new DefaultAzureCredential();
-    const accessToken = await credential.getToken("https://database.windows.net/");
-    return {
-        server: process.env.DB_SERVER,
-        authentication: {
-            type: "azure-active-directory-access-token",
-            options: { token: accessToken.token }
-        },
-        options: {
-            database: process.env.DB_NAME,
-            encrypt: true
-        }
+module.exports = async function (context, req) {
+  context.log('[scoreboard] invocation started');
+  context.log('[scoreboard] DB_SERVER=', process.env.DB_SERVER);
+  context.log('[scoreboard] DB_NAME=',   process.env.DB_NAME);
+
+  try {
+    // connect (uses MSI)
+    await sql.connect(dbConfig);
+    context.log('[scoreboard] connected to database');
+
+    if (req.method === 'GET') {
+      // Read top 10 scores
+      const result = await sql.query`
+        SELECT TOP (10) username, score
+        FROM Scoreboard
+        ORDER BY score DESC
+      `;
+      context.res = {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: result.recordset
+      };
+      return;
+    }
+
+    if (req.method === 'POST') {
+      // Validate input
+      const { error, value } = scoreSchema.validate(req.body);
+      if (error) {
+        context.log.warn('[scoreboard] validation failed:', error.details[0].message);
+        context.res = {
+          status: 400,
+          body: { message: error.details[0].message }
+        };
+        return;
+      }
+
+      // Parameterized insert
+      await sql.query`
+        INSERT INTO Scoreboard (username, score)
+        VALUES (${value.username}, ${value.score})
+      `;
+      context.res = {
+        status: 201,
+        body: { message: 'Score added' }
+      };
+      return;
+    }
+
+    // Method not allowed
+    context.res = { status: 405, body: 'Method Not Allowed' };
+  }
+  catch (err) {
+    // Log the full error
+    context.log.error('[scoreboard] ERROR:', err);
+    context.res = {
+      status: 500,
+      body: { message: 'Internal server error' }
     };
-}
+  }
+};
