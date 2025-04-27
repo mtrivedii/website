@@ -1,38 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>User Directory</h1>
-  <table>
-    <thead><tr><th>ID</th><th>Email</th><th>Role</th></tr></thead>
-    <tbody id="user-table"></tbody>
-  </table>
-  <p><a class="button" href="index.html">← Home</a></p>
+  <div class="container">
+    <h1>👥 User Directory</h1>
+    <div id="users">
+      <div class="spinner"></div>
+    </div>
+    <p><a class="button" href="index.html">← Home</a></p>
+  </div>
 
   <script>
     async function loadUsers() {
+      const target = document.getElementById("users");
       try {
-        const res = await fetch('/api/users');
-        if (!res.ok) throw new Error(res.status);
-        const users = await res.json();
-        const tbody = document.getElementById('user-table');
-        users.forEach(u => {
-          const tr = document.createElement('tr');
+        const res = await fetch("/api/users");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const table = document.createElement("table");
+        table.className = "fancy-table";
+        table.innerHTML = `
+          <thead>
+            <tr><th>ID</th><th>Email</th><th>Role</th></tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        data.forEach(u => {
+          const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${u.id}</td>
-            <td>${u.email}</td>
-            <td>${u.role}</td>
+            <td data-label="ID">${u.id}</td>
+            <td data-label="Email">${u.email}</td>
+            <td data-label="Role">${u.Role || '–'}</td>
           `;
           tbody.appendChild(tr);
         });
+
+        target.innerHTML = "";
+        target.appendChild(table);
       } catch (e) {
-        console.error('Failed to load users:', e);
-        document.getElementById('user-table').innerHTML =
-          '<tr><td colspan="3">Error loading users.</td></tr>';
+        target.innerHTML = `<p class="warning">Error loading users: ${e.message}</p>`;
       }
     }
 
