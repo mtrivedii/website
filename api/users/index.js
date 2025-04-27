@@ -1,43 +1,48 @@
-const sql = require("mssql");
+const sql = require('mssql');
 
-// same service-principal configuration:
+// Managed Identity config (unchanged)
 const dbConfig = {
-  server:   process.env.DB_SERVER,
+  server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
-  authentication: {
-    type: "azure-active-directory-service-principal-secret",
-    options: {
-      clientId:     process.env.AAD_CLIENT_ID,
-      clientSecret: process.env.AAD_CLIENT_SECRET,
-      tenantId:     process.env.AAD_TENANT_ID
-    }
-  },
+  authentication: { type: 'azure-active-directory-msi-app-service' },
   options: {
     encrypt: true,
     trustServerCertificate: true
   }
 };
 
-module.exports = async function(context, req) {
-  const id = context.executionContext.invocationId;
-  context.log(`[${id}] users start`);
+module.exports = async function (context, req) {
+  context.log('Users API triggered');
 
+  let pool;
   try {
-    const pool = await sql.connect(dbConfig);
-    context.log(`[${id}] DB connected`);
+    pool = await sql.connect(dbConfig);
+    context.log('Connected to DB for users');
 
+    // note alias: Role → role
     const result = await pool
       .request()
-      .query("SELECT id, email, Role FROM Users ORDER BY id");
+      .query(`
+        SELECT 
+          id, 
+          email, 
+          COALESCE(Role,'user') AS role 
+        FROM Users 
+        ORDER BY id
+      `);
 
     context.res = {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
       body: result.recordset
     };
-  }
-  catch (err) {
-    context.log.error(`[${id}] users ERROR`, err);
-    context.res = { status: 500, body: { message: "Internal server error" } };
+  } catch (err) {
+    context.log.error('Users API error:', err);
+    context.res = {
+      status: 500,
+      body: { message: 'Internal server error' }
+    };
+  } finally {
+    if (pool) await sql.close();
   }
 };
