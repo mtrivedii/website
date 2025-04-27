@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "adminCheck/index.js"
+  "scriptFile": "index.js"
 }
