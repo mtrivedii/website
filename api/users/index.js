@@ -1,18 +1,25 @@
 const sql = require("mssql");
 
-// same MSI config
+// DB configuration using Managed Identity (MSI)
 const dbConfig = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_NAME,
-  authentication: { type: "azure-active-directory-msi-app-service" },
-  options: { encrypt: true, trustServerCertificate: true },
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
+  server:           process.env.DB_SERVER,
+  database:         process.env.DB_NAME,
+  authentication:   { type: "azure-active-directory-msi-app-service" },
+  options:          { encrypt: true, trustServerCertificate: true },
+  pool:             { max: 10, min: 0, idleTimeoutMillis: 30000 }
 };
 
-// one-time pool
+// Single global pool
 const poolPromise = sql.connect(dbConfig)
-  .then(p => { console.log("[users] pool created"); return p; })
-  .catch(e => { console.error("[users] pool failed", e); throw e; });
+  .then(pool => {
+    console.log("[users] Connection pool created");
+    pool.on("error", err => console.error("[users] Pool error", err));
+    return pool;
+  })
+  .catch(err => {
+    console.error("[users] Pool creation failed", err);
+    throw err;
+  });
 
 module.exports = async function(context, req) {
   const id = context.executionContext.invocationId;
@@ -20,8 +27,10 @@ module.exports = async function(context, req) {
 
   try {
     const pool = await poolPromise;
-    context.log(`[${id}] connected to DB`);
-    const result = await pool.request().query("SELECT id,email,Role FROM Users ORDER BY id");
+    context.log(`[${id}] DB connected`);
+
+    const result = await pool.request()
+      .query("SELECT id, email, Role FROM Users ORDER BY id");
     context.res = { status: 200, body: result.recordset };
   }
   catch (err) {
