@@ -16,14 +16,13 @@
   </div>
 
   <script>
-    async function loadScores() {
+    async function loadLeaderboard() {
       const target = document.getElementById("scoreboard");
       try {
         const res = await fetch("/api/scoreboard");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(res.status);
         const data = await res.json();
 
-        // build table
         const table = document.createElement("table");
         table.className = "fancy-table";
         table.innerHTML = `
@@ -34,12 +33,12 @@
         `;
         const tbody = table.querySelector("tbody");
 
-        data.forEach((entry, i) => {
+        data.forEach((e, i) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td data-label="#">${i+1}</td>
-            <td data-label="Username">${entry.username}</td>
-            <td data-label="Score">${entry.score}</td>
+            <td data-label="Username">${e.username}</td>
+            <td data-label="Score">${e.score}</td>
           `;
           tbody.appendChild(tr);
         });
@@ -47,11 +46,11 @@
         target.innerHTML = "";
         target.appendChild(table);
       } catch (e) {
-        target.innerHTML = `<p class="warning">Error loading scores: ${e.message}</p>`;
+        target.innerHTML = `<p class="warning">Error loading scores: HTTP ${e.message}</p>`;
       }
     }
 
-    loadScores();
+    loadLeaderboard();
   </script>
 </body>
 </html>
