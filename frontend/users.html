@@ -1,47 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>User Directory</h1>
-    <table>
-      <thead>
-        <tr><th>ID</th><th>Email</th><th>Role</th></tr>
-      </thead>
-      <tbody id="users">
-        <tr><td colspan="3">Loading…</td></tr>
-      </tbody>
-    </table>
-    <p><a class="button" href="index.html">← Home</a></p>
-  </div>
+  <h1>User Directory</h1>
+  <table>
+    <thead><tr><th>ID</th><th>Email</th><th>Role</th></tr></thead>
+    <tbody id="user-table"></tbody>
+  </table>
+  <p><a class="button" href="index.html">← Home</a></p>
 
   <script>
     async function loadUsers() {
-      const tbody = document.getElementById('users');
       try {
-        const res = await fetch('/api/users', {
-          method: 'GET',
-          credentials: 'include'    // ← include the AAD auth cookie
-        });
+        const res = await fetch('/api/users');
         if (!res.ok) throw new Error(res.status);
         const users = await res.json();
-
-        // clear “Loading…” row
-        tbody.innerHTML = '';
-
+        const tbody = document.getElementById('user-table');
         users.forEach(u => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${u.id}</td><td>${u.email}</td><td>${u.role}</td>`;
+          tr.innerHTML = `
+            <td>${u.id}</td>
+            <td>${u.email}</td>
+            <td>${u.role}</td>
+          `;
           tbody.appendChild(tr);
         });
-      }
-      catch (e) {
+      } catch (e) {
         console.error('Failed to load users:', e);
-        tbody.innerHTML = `<tr><td colspan="3">Error loading users.</td></tr>`;
+        document.getElementById('user-table').innerHTML =
+          '<tr><td colspan="3">Error loading users.</td></tr>';
       }
     }
 
