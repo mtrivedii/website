@@ -1,46 +1,66 @@
 const sql  = require("mssql");
 const Joi  = require("joi");
 
-// validate POST body
+// 1) Input validation schema (module-scope)
 const scoreSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   score:    Joi.number().integer().min(0).required()
-});
+}).options({ abortEarly: false });
 
-// DB config via Managed Identity
+// 2) DB config via MSI (module-scope)
 const dbConfig = {
-  server: process.env.DB_SERVER,
+  server:   process.env.DB_SERVER,
   database: process.env.DB_NAME,
   authentication: { type: "azure-active-directory-msi-app-service" },
   options: {
     encrypt: true,
     trustServerCertificate: true,
+    multiSubnetFailover: true,
     connectTimeout: 15000,
     requestTimeout: 300000
   },
-  pool: { max:10, min:0, idleTimeoutMillis:30000 }
+  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
 };
 
-// one global poolPromise
-const poolPromise = new sql.ConnectionPool(dbConfig)
+// 3) Global poolPromise (module-scope) — no context here!
+let poolPromise = new sql.ConnectionPool(dbConfig)
   .connect()
   .then(p => {
+    console.log("[scoreboard] pool created");
     p.on("error", e => {
       console.error("[scoreboard] pool error", e);
+      poolPromise = null;           // so next call rebuilds
     });
-    console.log("[scoreboard] pool created");
     return p;
   })
   .catch(e => {
     console.error("[scoreboard] pool creation failed", e);
+    poolPromise = null;
     throw e;
   });
 
-module.exports = async function(context, req) {
+// 4) Function handler
+module.exports = async function (context, req) {
   const id = context.executionContext.invocationId;
-  context.log(`[${id}] scoreboard ${req.method}`);
+  context.log(`[${id}] scoreboard start (${req.method})`);
 
   try {
+    if (!process.env.DB_SERVER || !process.env.DB_NAME) {
+      throw new Error("Missing DB_SERVER/DB_NAME");
+    }
+
+    // await or recreate the pool
+    if (!poolPromise) {
+      poolPromise = new sql.ConnectionPool(dbConfig).connect()
+        .then(p => {
+          console.log("[scoreboard] pool re-created");
+          p.on("error", e => {
+            console.error("[scoreboard] pool error", e);
+            poolPromise = null;
+          });
+          return p;
+        });
+    }
     const pool = await poolPromise;
 
     if (req.method === "GET") {
@@ -53,7 +73,10 @@ module.exports = async function(context, req) {
     if (req.method === "POST") {
       const { error, value } = scoreSchema.validate(req.body);
       if (error) {
-        context.res = { status: 400, body: { message: error.details.map(d=>d.message).join("; ") } };
+        context.res = {
+          status: 400,
+          body: { message: error.details.map(d=>d.message).join("; ") }
+        };
         return;
       }
       await pool.request()
