@@ -1,70 +1,112 @@
 const sql  = require('mssql');
 const Joi  = require('joi');
 
+// ============================================================================
+//  Standards & Regulations + Threat Analysis & Secure Design + Input Validation
+// ============================================================================
 // Joi schema for POSTing a new score
 const scoreSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   score:    Joi.number().integer().min(0).required()
-});
+}).options({ abortEarly: false });
 
-// DB config via Managed Identity (App Service MSI)
+// ============================================================================
+//  Authentication + Encryption + Principle of Least Privilege
+// ============================================================================
+// Secure DB config via Managed Identity (App Service MSI)
 const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
   authentication: { type: 'azure-active-directory-msi-app-service' },
   options: {
     encrypt: true,
-    // allow the MSI flow to trust the platform cert
-    trustServerCertificate: true
+    trustServerCertificate: true,
+    multiSubnetFailover: true
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
   }
 };
 
+// ============================================================================
+//  Connection Pool (reused across invocations for performance)
+// ============================================================================
+let poolPromise = sql.connect(dbConfig)
+  .then(pool => {
+    console.log('[scoreboard] Global connection pool created');
+    pool.on('error', err => console.error('[scoreboard] Pool error:', err));
+    return pool;
+  })
+  .catch(err => {
+    console.error('[scoreboard] Global pool creation failed:', err);
+    throw err;
+  });
+
+// ============================================================================
+//  Fail Safely + Logging & Monitoring
+// ============================================================================
 module.exports = async function (context, req) {
-  context.log('[scoreboard] invocation started');
+  const invocationId = context.executionContext.invocationId;
+  context.log.info(`[${invocationId}] Invocation started`);
 
   try {
-    // establish the connection
-    await sql.connect(dbConfig);
-    context.log('[scoreboard] connected to DB');
+    context.log.info(
+      `[${invocationId}] Connecting to DB: server=${process.env.DB_SERVER}, db=${process.env.DB_NAME}`
+    );
+    const pool = await poolPromise;
+    context.log.info(`[${invocationId}] Connected to DB (reused pool)`);
 
+    // ========================================================================
+    //  Enforce least privilege based on HTTP method
+    // ========================================================================
     if (req.method === 'GET') {
-      const result = await sql.query`
-        SELECT TOP (10) username, score
-        FROM Scoreboard
-        ORDER BY score DESC
-      `;
+      context.log.info(`[${invocationId}] Handling GET`);
+      const result = await pool
+        .request()
+        .query('SELECT TOP (10) username, score FROM Scoreboard ORDER BY score DESC');
       context.res = {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
         body: result.recordset
       };
+      context.log.info(`[${invocationId}] GET completed successfully`);
       return;
     }
 
     if (req.method === 'POST') {
+      context.log.info(`[${invocationId}] Handling POST`);
       const { error, value } = scoreSchema.validate(req.body);
       if (error) {
-        context.log.warn('[scoreboard] validation failed:', error.details[0].message);
-        context.res = { status: 400, body: { message: error.details[0].message } };
+        const msg = error.details.map(e => e.message).join('; ');
+        context.log.warn(`[${invocationId}] Validation failed: ${msg}`);
+        context.res = { status: 400, body: { message: `Validation failed: ${msg}` } };
         return;
       }
-      await sql.query`
-        INSERT INTO Scoreboard (username, score)
-        VALUES (${value.username}, ${value.score})
-      `;
-      context.res = { status: 201, body: { message: 'Score added' } };
+
+      await pool
+        .request()
+        .input('username', sql.NVarChar, value.username)
+        .input('score', sql.Int, value.score)
+        .query('INSERT INTO Scoreboard (username, score) VALUES (@username, @score)');
+      
+      context.res = { status: 201, body: { message: 'Score added successfully' } };
+      context.log.info(`[${invocationId}] POST completed for user ${value.username}`);
       return;
     }
 
-    // unsupported HTTP method
+    // ========================================================================
+    //  Reject unsupported HTTP methods
+    // ========================================================================
+    context.log.warn(`[${invocationId}] Unsupported HTTP method: ${req.method}`);
     context.res = { status: 405, body: 'Method Not Allowed' };
   }
   catch (err) {
-    context.log.error('[scoreboard] ERROR:', err);
-    // For production, return a generic message. You can re-enable debug output if you need further insight.
+    context.log.error(`[${invocationId}] ERROR: ${err.message}`, err);
     context.res = {
       status: 500,
-      body: { message: 'Internal server error' }
+      body: { message: 'Internal server error. Contact support with invocation ID.' }
     };
   }
 };
