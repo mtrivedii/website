@@ -1,30 +1,30 @@
-const sql  = require("mssql");
-const Joi  = require("joi");
+const sql = require("mssql");
+const Joi = require("joi");
 
-// validate inputs
+// Input‐validation schema
 const scoreSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
   score:    Joi.number().integer().min(0).required()
 });
 
-// Managed Identity config
+// DB configuration using Managed Identity (MSI)
 const dbConfig = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_NAME,
-  authentication: { type: "azure-active-directory-msi-app-service" },
-  options: { encrypt: true, trustServerCertificate: true },
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
+  server:           process.env.DB_SERVER,
+  database:         process.env.DB_NAME,
+  authentication:   { type: "azure-active-directory-msi-app-service" },
+  options:          { encrypt: true, trustServerCertificate: true },
+  pool:             { max: 10, min: 0, idleTimeoutMillis: 30000 }
 };
 
-// one-time pool creation
+// Create a single global pool once
 const poolPromise = sql.connect(dbConfig)
   .then(pool => {
-    console.log("[scoreboard] pool created");
-    pool.on("error", e => console.error("[scoreboard] pool error", e));
+    console.log("[scoreboard] Connection pool created");
+    pool.on("error", err => console.error("[scoreboard] Pool error", err));
     return pool;
   })
   .catch(err => {
-    console.error("[scoreboard] pool creation failed", err);
+    console.error("[scoreboard] Pool creation failed", err);
     throw err;
   });
 
@@ -33,13 +33,12 @@ module.exports = async function(context, req) {
   context.log(`[${id}] scoreboard start`);
 
   try {
-    const pool = await poolPromise;
-    context.log(`[${id}] connected to DB`);
+    const pool = await poolPromise;         // reuse the same pool
+    context.log(`[${id}] DB connected`);
 
     if (req.method === "GET") {
-      const result = await pool
-        .request()
-        .query("SELECT TOP (10) username, score FROM Scoreboard ORDER BY score DESC");
+      const result = await pool.request()
+        .query("SELECT TOP(10) username, score FROM Scoreboard ORDER BY score DESC");
       context.res = { status: 200, body: result.recordset };
       return;
     }
@@ -50,11 +49,10 @@ module.exports = async function(context, req) {
         context.res = { status: 400, body: { message: error.details.map(d=>d.message).join("; ") } };
         return;
       }
-      await pool
-        .request()
-        .input("username", sql.NVarChar, value.username)
-        .input("score",    sql.Int,      value.score)
-        .query("INSERT INTO Scoreboard (username,score) VALUES (@username,@score)");
+      await pool.request()
+        .input("u", sql.NVarChar, value.username)
+        .input("s", sql.Int,       value.score)
+        .query("INSERT INTO Scoreboard(username,score) VALUES(@u,@s)");
       context.res = { status: 201, body: { message: "Score added" } };
       return;
     }
