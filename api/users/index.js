@@ -12,13 +12,20 @@ const dbConfig = {
 };
 
 module.exports = async function (context, req) {
-  context.log("Users API triggered");
+  const id = context.executionContext.invocationId;
+  context.log(`[${id}] users() start, method=${req.method}`);
 
+  if (req.method !== 'GET') {
+    context.log.warn(`[${id}] users() -> 405 Method Not Allowed`);
+    context.res = { status: 405, body: 'Method Not Allowed' };
+    return;
+  }
+
+  let pool;
   try {
-    const pool = await sql.connect(dbConfig);
-    context.log("Connected to DB for users");
+    pool = await sql.connect(dbConfig);
+    context.log(`[${id}] Connected to DB for users`);
 
-    // pull back id, email, role
     const result = await pool
       .request()
       .query("SELECT id, email, Role FROM Users ORDER BY id");
@@ -28,13 +35,21 @@ module.exports = async function (context, req) {
       headers: { "Content-Type": "application/json" },
       body: result.recordset
     };
-  } catch (err) {
-    context.log.error("Users API error:", err);
+    context.log(`[${id}] users() -> 200, ${result.recordset.length} rows`);
+  }
+  catch (err) {
+    context.log.error(`[${id}] users() ERROR:`, err);
     context.res = {
       status: 500,
-      body: { message: "Internal server error" }
+      body: { message: 'Internal server error' }
     };
-  } finally {
-    await sql.close();
+  }
+  finally {
+    try {
+      if (pool) await pool.close();
+      context.log(`[${id}] DB pool closed for users`);
+    } catch(closeErr) {
+      context.log.error(`[${id}] Error closing users pool`, closeErr);
+    }
   }
 };
