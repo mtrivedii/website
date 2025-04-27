@@ -8,23 +8,52 @@
 <body>
   <div class="container">
     <h1>🏆 Red Team Leaderboard</h1>
-    <div id="scoreboard"></div>
+
+    <table id="scoreboard" class="leaderboard">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Username</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="3">Loading…</td></tr>
+      </tbody>
+    </table>
+
     <p><a class="button" href="index.html">← Home</a></p>
   </div>
 
   <script>
-    fetch("/api/scoreboard")
-      .then(res => res.json())
-      .then(data => {
-        const div = document.getElementById("scoreboard");
-        data.forEach((entry, index) => {
-          const el = document.createElement("div");
-          el.classList.add("card");
-          el.innerHTML = `<h3>${index + 1}. ${entry.ip_address}</h3>
-            <p>Hits: ${entry.hits}<br/>Last seen: ${entry.last_seen}</p>`;
-          div.appendChild(el);
-        });
-      });
+    async function loadLeaderboard() {
+      const tbody = document.querySelector('#scoreboard tbody');
+      try {
+        const res = await fetch('/api/scoreboard');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3">No scores yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data
+          .map((entry, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${entry.username}</td>
+              <td>${entry.score}</td>
+            </tr>
+          `)
+          .join('');
+      } catch (err) {
+        console.error('Failed to load leaderboard:', err);
+        tbody.innerHTML = '<tr><td colspan="3">Error loading scores.</td></tr>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadLeaderboard);
   </script>
 </body>
 </html>
