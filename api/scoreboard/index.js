@@ -70,9 +70,14 @@ module.exports = async function (context, req) {
   catch (err) {
     // Log the full error
     context.log.error('[scoreboard] ERROR:', err);
+    // DEBUG: return the real error for diagnosis
     context.res = {
       status: 500,
-      body: { message: 'Internal server error' }
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        error: err.message,
+        stack: err.stack
+      }
     };
   }
 };
