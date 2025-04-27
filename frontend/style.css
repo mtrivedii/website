@@ -148,3 +148,63 @@ hr {
     max-width: 100%;
   }
 }
+
+/* ─────────────── Table Styling ─────────────── */
+.fancy-table {
+  width: 90%;
+  margin: 2rem auto;
+  border-collapse: collapse;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  font-size: 1rem;
+}
+
+.fancy-table thead th {
+  background-color: #00e6b8;
+  color: #111;
+  padding: 0.75rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid #008f6a;
+}
+
+.fancy-table tbody td {
+  color: #eee;
+  padding: 0.6rem;
+  border-bottom: 1px solid #333;
+}
+
+.fancy-table tbody tr:nth-child(even) {
+  background-color: #1a1a1a;
+}
+.fancy-table tbody tr:nth-child(odd) {
+  background-color: #111;
+}
+
+.fancy-table tbody tr:hover {
+  background-color: #2a2a2a;
+}
+
+/* For responsive “stacked” on mobile */
+@media (max-width: 600px) {
+  .fancy-table, .fancy-table thead, .fancy-table tbody, .fancy-table th, .fancy-table td, .fancy-table tr {
+    display: block;
+  }
+  .fancy-table thead { display: none; }
+  .fancy-table tr { margin-bottom: 1rem; }
+  .fancy-table td {
+    padding-left: 50%;
+    position: relative;
+    border: none;
+    border-bottom: 1px solid #333;
+  }
+  .fancy-table td:before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 45%;
+    padding-left: 0.75rem;
+    white-space: nowrap;
+    font-weight: bold;
+    content: attr(data-label);
+    color: #00e6b8;
+  }
+}
