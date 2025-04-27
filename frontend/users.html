@@ -20,7 +20,7 @@
       const target = document.getElementById("users");
       try {
         const res = await fetch("/api/users");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(res.status);
         const data = await res.json();
 
         const table = document.createElement("table");
@@ -46,7 +46,7 @@
         target.innerHTML = "";
         target.appendChild(table);
       } catch (e) {
-        target.innerHTML = `<p class="warning">Error loading users: ${e.message}</p>`;
+        target.innerHTML = `<p class="warning">Error loading users: HTTP ${e.message}</p>`;
       }
     }
 
