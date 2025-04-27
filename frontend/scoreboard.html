@@ -8,52 +8,42 @@
 <body>
   <div class="container">
     <h1>🏆 Red Team Leaderboard</h1>
-
-    <table id="scoreboard" class="leaderboard">
+    <table>
       <thead>
-        <tr>
-          <th>#</th>
-          <th>Username</th>
-          <th>Score</th>
-        </tr>
+        <tr><th>#</th><th>Username</th><th>Score</th></tr>
       </thead>
-      <tbody>
+      <tbody id="scoreboard">
         <tr><td colspan="3">Loading…</td></tr>
       </tbody>
     </table>
-
     <p><a class="button" href="index.html">← Home</a></p>
   </div>
 
   <script>
     async function loadLeaderboard() {
-      const tbody = document.querySelector('#scoreboard tbody');
+      const tbody = document.getElementById('scoreboard');
       try {
-        const res = await fetch('/api/scoreboard');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const res = await fetch('/api/scoreboard', {
+          method: 'GET',
+          credentials: 'include'    // ← include cookie even for anonymous-allowed
+        });
+        if (!res.ok) throw new Error(res.status);
         const data = await res.json();
 
-        if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3">No scores yet.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = data
-          .map((entry, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td>${entry.username}</td>
-              <td>${entry.score}</td>
-            </tr>
-          `)
-          .join('');
-      } catch (err) {
-        console.error('Failed to load leaderboard:', err);
-        tbody.innerHTML = '<tr><td colspan="3">Error loading scores.</td></tr>';
+        tbody.innerHTML = '';
+        data.forEach((entry, i) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${i+1}</td><td>${entry.username}</td><td>${entry.score}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      catch (e) {
+        console.error('Error loading scores:', e);
+        tbody.innerHTML = `<tr><td colspan="3">Error loading scores.</td></tr>`;
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadLeaderboard);
+    loadLeaderboard();
   </script>
 </body>
 </html>
