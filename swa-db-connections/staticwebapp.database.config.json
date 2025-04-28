@@ -4,13 +4,15 @@
   "entities": {
     "Scoreboard": {
       "source": "dbo.Scoreboard",
+      "primaryKey": "ScoreID",
       "permissions": [
-        { "actions": ["read"],   "role": "anonymous" },
+        { "actions": ["read"], "role": "anonymous" },
         { "actions": ["create"], "role": "authenticated" }
       ]
     },
     "Users": {
-      "source": "dbo.Users",
+      "source": "dbo.users",
+      "primaryKey": "id",
       "permissions": [
         { "actions": ["read"], "role": "authenticated" }
       ]
