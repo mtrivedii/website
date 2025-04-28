@@ -31,8 +31,26 @@
       "allowedRoles": ["anonymous", "authenticated"]
     },
     {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/robots.txt",
+      "serve": "/robots.txt"
+    },
+    {
+      "route": "/",
+      "serve": "/index.html",
+      "statusCode": 200
+    },
+    {
       "route": "/*",
-      "allowedRoles": ["anonymous"]
+      "serve": "/index.html",
+      "statusCode": 404
     }
-  ]
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/admin.html", "/users.html", "/scoreboard.html", "/upload.html"]
+  }
 }
