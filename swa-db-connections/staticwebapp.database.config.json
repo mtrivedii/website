@@ -13,8 +13,7 @@
       "fields": {
         "ScoreID": { "type": "int" },
         "Username": { "type": "string" },
-        "Score": { "type": "int" },
-        "Timestamp": { "type": "datetime" }
+        "Score": { "type": "int" }
       },
       "permissions": [
         { "actions": ["read"], "role": "anonymous" },
