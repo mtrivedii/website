@@ -2,12 +2,16 @@ const axios = require('axios');
 
 module.exports = async function (context, req) {
   const id = context.executionContext.invocationId;
-  context.log(`[${id}] scoreboard proxy ${req.method}`);
+  console.log(`[${id}] scoreboard proxy ${req.method}`);
+  console.log("DEBUG: DATA_API_BASE =", process.env.DATA_API_BASE);
 
   try {
     if (req.method === "GET") {
       const response = await axios.get(`${process.env.DATA_API_BASE}/Scoreboard`);
-      context.res = { status: 200, body: response.data.value };
+      console.log(`[${id}] DataAPI Response:`, response.data);
+
+      // Return entire response.data without assuming "value"
+      context.res = { status: 200, body: response.data };
       return;
     }
 
@@ -21,12 +25,10 @@ module.exports = async function (context, req) {
     context.res = { status: 405, body: "Method Not Allowed" };
   } catch (err) {
     if (err.response) {
-      // If Data API returned 400/404/etc
-      context.log.error(`[${id}] scoreboard proxy ERROR`, err.response.status, err.response.data);
+      console.error(`[${id}] ERROR`, err.response.status, err.response.data);
       context.res = { status: err.response.status, body: err.response.data };
     } else {
-      // Axios error without response (network, etc)
-      context.log.error(`[${id}] scoreboard proxy NETWORK ERROR`, err.message);
+      console.error(`[${id}] NETWORK ERROR`, err.message);
       context.res = { status: 500, body: { message: "Internal server error" } };
     }
   }
