@@ -1,6 +1,10 @@
 {
   "version": "1.0.0",
-  "runtime": { "rest": { "route": "/data-api/rest" } },
+  "runtime": {
+    "rest": {
+      "route": "/data-api/rest"
+    }
+  },
   "entities": {
     "Scoreboard": {
       "source": "dbo.Scoreboard",
@@ -16,13 +20,13 @@
         { "actions": ["create"], "role": "authenticated" }
       ]
     },
-    "Users": {
+    "users": {
       "source": "dbo.users",
       "primaryKey": "id",
       "fields": {
         "id": { "type": "int" },
         "email": { "type": "string" },
-        "role": { "type": "string" }
+        "Role": { "type": "string" }
       },
       "permissions": [
         { "actions": ["read"], "role": "authenticated" }
