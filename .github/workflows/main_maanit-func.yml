@@ -52,15 +52,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: deployment
-
-      - name: Move function folders correctly
-        shell: pwsh
-        run: |
-          Get-ChildItem -Path 'deployment' | ForEach-Object {
-            Move-Item -Path $_.FullName -Destination '.'
-          }
-          Remove-Item -Path 'deployment' -Recurse -Force
+          path: api
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -74,4 +66,4 @@ jobs:
         with:
           app-name: 'maanit-func'
           slot-name: 'Production'
-          package: '.'
+          package: 'api'
