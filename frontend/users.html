@@ -19,7 +19,7 @@
     async function loadUsers() {
       const target = document.getElementById("users");
       try {
-        const res = await fetch("/api/users");
+        const res = await fetch("https://maanit-func.azurewebsites.net/api/users");
         if (!res.ok) throw new Error(res.status);
         const data = await res.json();
 
