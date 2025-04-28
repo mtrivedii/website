@@ -10,11 +10,6 @@
       "source": "dbo.Scoreboard",
       "primaryKey": "ScoreID",
       "allowAnonymousGet": true,
-      "fields": {
-        "ScoreID": { "type": "int" },
-        "Username": { "type": "string" },
-        "Score": { "type": "int" }
-      },
       "permissions": [
         { "actions": ["read"], "role": "anonymous" },
         { "actions": ["create"], "role": "authenticated" }
