@@ -1,6 +1,5 @@
 const sql = require('mssql');
 
-// Database config
 const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
@@ -29,7 +28,7 @@ async function getPool() {
 
 module.exports = async function (context, req) {
   const id = context.executionContext.invocationId;
-  context.log(`[${id}] [USERS] Request Method: ${req.method}`);
+  context.log(`[${id}] /api/users called with method ${req.method}`);
 
   try {
     const pool = await getPool();
@@ -38,28 +37,13 @@ module.exports = async function (context, req) {
       const result = await pool.request()
         .query("SELECT id, email, Role FROM dbo.users ORDER BY id ASC");
 
-      const users = result.recordset || [];
-
-      context.res = {
-        status: 200,
-        body: users
-      };
+      context.res = { status: 200, body: result.recordset };
       return;
     }
 
-    context.res = {
-      status: 405,
-      body: { message: "Method Not Allowed" }
-    };
+    context.res = { status: 405, body: { message: "Method Not Allowed" } };
   } catch (err) {
-    context.log.error(`[${id}] [USERS] SQL ERROR:`, err);
-
-    context.res = {
-      status: 500,
-      body: {
-        message: "Internal Server Error",
-        details: err.message || "Unknown SQL error"
-      }
-    };
+    context.log.error(`[${id}] ERROR`, err);
+    context.res = { status: 500, body: { message: "Internal Server Error" } };
   }
 };
