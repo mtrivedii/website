@@ -57,7 +57,7 @@ jobs:
       - name: Move function folders correctly
         shell: pwsh
         run: |
-          Get-ChildItem -Path 'deployment/api' | ForEach-Object {
+          Get-ChildItem -Path 'deployment' | ForEach-Object {
             Move-Item -Path $_.FullName -Destination '.'
           }
           Remove-Item -Path 'deployment' -Recurse -Force
