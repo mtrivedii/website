@@ -13,7 +13,12 @@ module.exports = async function (context, req) {
 
     context.res = { status: 405, body: "Method Not Allowed" };
   } catch (err) {
-    context.log.error(`[${id}] users proxy ERROR`, err);
-    context.res = { status: 500, body: { message: "Internal server error" } };
+    if (err.response) {
+      context.log.error(`[${id}] users proxy ERROR`, err.response.status, err.response.data);
+      context.res = { status: err.response.status, body: err.response.data };
+    } else {
+      context.log.error(`[${id}] users proxy NETWORK ERROR`, err.message);
+      context.res = { status: 500, body: { message: "Internal server error" } };
+    }
   }
 };
