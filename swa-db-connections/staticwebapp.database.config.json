@@ -9,6 +9,7 @@
     "Scoreboard": {
       "source": "dbo.Scoreboard",
       "primaryKey": "ScoreID",
+      "allowAnonymousGet": true,
       "fields": {
         "ScoreID": { "type": "int" },
         "Username": { "type": "string" },
@@ -23,6 +24,7 @@
     "users": {
       "source": "dbo.users",
       "primaryKey": "id",
+      "allowAnonymousGet": false,
       "fields": {
         "id": { "type": "int" },
         "email": { "type": "string" },
