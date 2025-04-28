@@ -1,7 +1,7 @@
 {
   "name": "secure-api",
   "version": "1.0.0",
-  "description": "API for red team testing (Azure Functions)",
+  "description": "API for red team testing (Azure Functions + Data API Builder Proxy)",
   "main": "index.js",
   "scripts": {
     "start": "func start"
@@ -9,7 +9,7 @@
   "author": "Maanit",
   "license": "MIT",
   "dependencies": {
-    "mssql": "^9.0.1",
+    "axios": "^1.6.0",
     "joi": "^17.0.0"
   },
   "engines": {
