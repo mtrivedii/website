@@ -19,7 +19,7 @@
     async function loadLeaderboard() {
       const target = document.getElementById("scoreboard");
       try {
-        const res = await fetch("/api/scoreboard");
+        const res = await fetch("https://maanit-func.azurewebsites.net/api/scoreboard");
         if (!res.ok) throw new Error(res.status);
         const data = await res.json();
 
