@@ -17,7 +17,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
+      - name: Checkout GitHub repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -25,13 +25,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install dependencies
+      - name: Install production dependencies
         shell: pwsh
         run: |
-          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          npm ci
+          cd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          npm install --omit=dev
 
-      - name: Upload function app artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -45,13 +45,19 @@ jobs:
       contents: read
 
     steps:
-      - name: Download function app artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
           path: deployment
 
-      - name: Azure login
+      - name: Move function folders correctly
+        shell: pwsh
+        run: |
+          Move-Item -Path 'deployment/api/*' -Destination 'deployment/' -Force
+          Remove-Item -Path 'deployment/api' -Recurse -Force
+
+      - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E619FA2E59C341D8845E5868AB5345E7 }}
@@ -63,4 +69,4 @@ jobs:
         with:
           app-name: 'maanit-func'
           slot-name: 'Production'
-          package: './deployment' # <- direct deployment, no moving needed
+          package: './deployment'
