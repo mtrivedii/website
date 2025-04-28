@@ -1,24 +1,49 @@
-const axios = require('axios');
+const sql = require('mssql');
+
+const dbConfig = {
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  authentication: {
+    type: 'azure-active-directory-msi-app-service'
+  },
+  options: {
+    encrypt: true,
+    trustServerCertificate: false
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
+  }
+};
+
+let poolPromise = null;
+async function getPool() {
+  if (!poolPromise) {
+    const pool = new sql.ConnectionPool(dbConfig);
+    poolPromise = pool.connect().then(() => pool);
+  }
+  return poolPromise;
+}
 
 module.exports = async function (context, req) {
   const id = context.executionContext.invocationId;
-  context.log(`[${id}] users proxy ${req.method}`);
+  context.log(`[${id}] /api/users called with method ${req.method}`);
 
   try {
+    const pool = await getPool();
+
     if (req.method === "GET") {
-      const response = await axios.get(`${process.env.DATA_API_BASE}/Users`);
-      context.res = { status: 200, body: response.data.value };
+      const result = await pool.request()
+        .query("SELECT id, email, Role FROM dbo.users ORDER BY id ASC");
+
+      context.res = { status: 200, body: result.recordset };
       return;
     }
 
-    context.res = { status: 405, body: "Method Not Allowed" };
+    context.res = { status: 405, body: { message: "Method Not Allowed" } };
   } catch (err) {
-    if (err.response) {
-      context.log.error(`[${id}] users proxy ERROR`, err.response.status, err.response.data);
-      context.res = { status: err.response.status, body: err.response.data };
-    } else {
-      context.log.error(`[${id}] users proxy NETWORK ERROR`, err.message);
-      context.res = { status: 500, body: { message: "Internal server error" } };
-    }
+    context.log.error(`[${id}] ERROR`, err);
+    context.res = { status: 500, body: { message: "Internal Server Error" } };
   }
 };
