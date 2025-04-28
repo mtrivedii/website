@@ -5,6 +5,12 @@
     "Scoreboard": {
       "source": "dbo.Scoreboard",
       "primaryKey": "ScoreID",
+      "fields": {
+        "ScoreID": { "type": "int" },
+        "Username": { "type": "string" },
+        "Score": { "type": "int" },
+        "Timestamp": { "type": "datetime" }
+      },
       "permissions": [
         { "actions": ["read"], "role": "anonymous" },
         { "actions": ["create"], "role": "authenticated" }
@@ -13,6 +19,11 @@
     "Users": {
       "source": "dbo.users",
       "primaryKey": "id",
+      "fields": {
+        "id": { "type": "int" },
+        "email": { "type": "string" },
+        "role": { "type": "string" }
+      },
       "permissions": [
         { "actions": ["read"], "role": "authenticated" }
       ]
