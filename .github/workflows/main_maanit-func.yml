@@ -54,10 +54,12 @@ jobs:
           name: node-app
           path: deployment
 
-      - name: Move content out of /deployment/api
+      - name: Move function folders correctly
         shell: pwsh
         run: |
-          Move-Item -Path 'deployment/*' -Destination '.' -Force
+          Get-ChildItem -Path 'deployment/api' | ForEach-Object {
+            Move-Item -Path $_.FullName -Destination '.'
+          }
           Remove-Item -Path 'deployment' -Recurse -Force
 
       - name: Login to Azure
