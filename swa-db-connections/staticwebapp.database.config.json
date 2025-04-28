@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "runtime": { "rest": { "route": "/data-api/rest" } },
+  "entities": {
+    "Scoreboard": {
+      "source": "dbo.Scoreboard",
+      "permissions": [
+        { "actions": ["read"],   "role": "anonymous" },
+        { "actions": ["create"], "role": "authenticated" }
+      ]
+    },
+    "Users": {
+      "source": "dbo.Users",
+      "permissions": [
+        { "actions": ["read"], "role": "authenticated" }
+      ]
+    }
+  }
+}
