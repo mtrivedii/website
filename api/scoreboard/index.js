@@ -20,7 +20,14 @@ module.exports = async function (context, req) {
 
     context.res = { status: 405, body: "Method Not Allowed" };
   } catch (err) {
-    context.log.error(`[${id}] scoreboard proxy ERROR`, err);
-    context.res = { status: 500, body: { message: "Internal server error" } };
+    if (err.response) {
+      // If Data API returned 400/404/etc
+      context.log.error(`[${id}] scoreboard proxy ERROR`, err.response.status, err.response.data);
+      context.res = { status: err.response.status, body: err.response.data };
+    } else {
+      // Axios error without response (network, etc)
+      context.log.error(`[${id}] scoreboard proxy NETWORK ERROR`, err.message);
+      context.res = { status: 500, body: { message: "Internal server error" } };
+    }
   }
 };
