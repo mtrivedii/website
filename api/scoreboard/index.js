@@ -1,7 +1,5 @@
 const sql = require('mssql');
-const Joi = require('joi');
 
-// Database config
 const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
@@ -18,12 +16,6 @@ const dbConfig = {
     idleTimeoutMillis: 30000
   }
 };
-
-// Input validation schema
-const scoreSchema = Joi.object({
-  Username: Joi.string().min(3).max(50).required(),
-  Score: Joi.number().integer().min(0).required()
-}).options({ abortEarly: false });
 
 let poolPromise = null;
 async function getPool() {
@@ -43,25 +35,9 @@ module.exports = async function (context, req) {
 
     if (req.method === "GET") {
       const result = await pool.request()
-        .query("SELECT TOP (10) ScoreID, Username, Score FROM dbo.Scoreboard ORDER BY Score DESC");
+        .query("SELECT ScoreID, Username, Score, Timestamp FROM dbo.Scoreboard ORDER BY Score DESC");
 
       context.res = { status: 200, body: result.recordset };
-      return;
-    }
-
-    if (req.method === "POST") {
-      const { error, value } = scoreSchema.validate(req.body);
-      if (error) {
-        context.res = { status: 400, body: { message: error.details.map(d => d.message).join("; ") } };
-        return;
-      }
-
-      await pool.request()
-        .input('Username', sql.NVarChar, value.Username)
-        .input('Score', sql.Int, value.Score)
-        .query("INSERT INTO dbo.Scoreboard (Username, Score, Timestamp) VALUES (@Username, @Score, GETDATE())");
-
-      context.res = { status: 201, body: { message: "Score added successfully" } };
       return;
     }
 
