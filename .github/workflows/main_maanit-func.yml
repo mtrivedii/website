@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'api'
   NODE_VERSION: '20.x'
 
 jobs:
@@ -26,16 +25,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install production dependencies
-        shell: pwsh
         run: |
-          cd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
           npm install --omit=dev
 
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          path: .
 
   deploy:
     runs-on: windows-latest
@@ -51,12 +48,6 @@ jobs:
           name: node-app
           path: deployment
 
-      - name: Move function folders correctly
-        shell: pwsh
-        run: |
-          Move-Item -Path 'deployment/api/*' -Destination 'deployment/' -Force
-          Remove-Item -Path 'deployment/api' -Recurse -Force
-
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -68,5 +59,4 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: 'maanit-func'
-          slot-name: 'Production'
           package: './deployment'
