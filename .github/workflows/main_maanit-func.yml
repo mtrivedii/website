@@ -1,62 +1,66 @@
-name: Build and deploy Azure Functions (Node.js)
+name: Build and deploy Node.js project to Azure Function App - maanit-func
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'api/**'
+  workflow_dispatch:
 
 env:
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'api'
   NODE_VERSION: '20.x'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ env.NODE_VERSION }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-    - name: Install production dependencies
-      run: |
-        cd api
-        npm ci --omit=dev
-        
-    - name: Zip functions
-      run: |
-        cd api
-        zip -r ../functionapp.zip .
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          npm ci
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: functionapp
-        path: functionapp.zip
+      - name: Upload function app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: build
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
-    - name: Download artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: functionapp
+      - name: Download function app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+          path: deployment
 
-    - name: Login to Azure
-      uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E619FA2E59C341D8845E5868AB5345E7 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B9AA729A29C349CEA0181DBCA4FCFD0E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_3C072746B7094217AEBA2870CF57139D }}
 
-    - name: Deploy to Function App
-      uses: Azure/functions-action@v1
-      with:
-        app-name: 'maanit-func'
-        package: './functionapp.zip'
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'maanit-func'
+          slot-name: 'Production'
+          package: './deployment' # <- direct deployment, no moving needed
