@@ -42,15 +42,16 @@
       "route": "/",
       "serve": "/index.html",
       "statusCode": 200
-    },
-    {
-      "route": "/*",
-      "serve": "/index.html",
-      "statusCode": 404
     }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/admin.html", "/users.html", "/scoreboard.html", "/upload.html"]
+    "exclude": [
+      "/api/*",
+      "/admin.html",
+      "/users.html",
+      "/scoreboard.html",
+      "/upload.html"
+    ]
   }
 }
