@@ -10,13 +10,11 @@
   <h1>Welcome to Maanit's Web App</h1>
   <p>Good Luck, LOL.</p>
   <div>
-    <!-- Register just kicks off the same AAD login flow -->
     <a 
       href="/.auth/login/aad?post_login_redirect_uri=/" 
       class="button"
     >Register</a>
 
-    <!-- Login uses the AAD login flow too -->
     <a 
       href="/.auth/login/aad?post_login_redirect_uri=/" 
       class="button"
@@ -24,7 +22,26 @@
 
     <a href="/users.html" class="button">User Directory</a> 
     <a href="/upload.html" class="button">File Upload</a>
-    <a href="/scoreboard.html" class="button">Scoreboard</a> 
+    <a href="/scoreboard.html" class="button">Scoreboard</a>
+    <!-- Admin Panel link, hidden by default -->
+    <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
   </div>
+  <script>
+    // After the page loads, check if the user is an admin
+    window.addEventListener('DOMContentLoaded', () => {
+      fetch('/api/adminCheck')
+        .then(res => {
+          if (res.status === 200) {
+            // User is admin, show the Admin Panel link
+            document.getElementById('admin-panel-link').style.display = '';
+          }
+          // If 403 or 401, do nothing (link stays hidden)
+        })
+        .catch(err => {
+          // Network or server error, keep link hidden
+          console.error('Error checking admin status:', err);
+        });
+    });
+  </script>
 </body>
 </html>
