@@ -27,9 +27,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_PEBBLE_0BCFDF603 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "frontend"
-          api_location: "api"
-          output_location: "."  # ✅ this is the important fix
+          app_location: "."         # ✅ your frontend is now in root
+          api_location: "api"       # optional: keep if you have Azure Functions in /api
+          output_location: ""       # ✅ leave blank if you're not running a build command
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
