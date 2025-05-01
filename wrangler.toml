@@ -1,9 +1,12 @@
-# wrangler.toml
-name = "my-secure-app"
+name = "website"                     # your project name
 type = "javascript"
 compatibility_date = "2025-05-01"
-compatibility_flags = ["nodejs_compat"]
 
-# tell Pages where your static site is
-pages_build_output_dir = "public"
+# === Required for Pages ===
+pages_build_output_dir = "public"    # tells Pages where your static files live
 
+# === (Optional) Environment variables ===
+[vars]
+JWKS_URI      = "https://login.microsoftonline.com/.../discovery/v2.0/keys"
+AAD_CLIENT_ID = "your-client-id"
+AAD_ISSUER    = "https://login.microsoftonline.com/.../v2.0"
