@@ -1,17 +1,9 @@
-name = "your-app"
+# wrangler.toml
+name = "my-secure-app"
 type = "javascript"
 compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
 
-[build]
-command    = "exit 0"
-upload     = "public"
+# tell Pages where your static site is
+pages_build_output_dir = "public"
 
-[site]
-bucket      = "public"
-entry-point = "functions"
-
-[vars]
-SQL_API_URL   = "https://your-http-sql-api.example.com"
-JWKS_URI      = "https://login.microsoftonline.com/.../keys"
-AAD_CLIENT_ID = "..."
-AAD_ISSUER    = "https://login.microsoftonline.com/.../v2.0"
