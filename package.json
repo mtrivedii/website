@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
       "dev":   "wrangler pages dev",
-      "build": "exit 0",
+      "build": "echo 'Building...'",   
       "deploy":"wrangler pages publish ."
     },
     "dependencies": {
