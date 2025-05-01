@@ -1,0 +1,17 @@
+name = "your-app"
+type = "javascript"
+compatibility_date = "2025-05-01"
+
+[build]
+command    = "exit 0"
+upload     = "public"
+
+[site]
+bucket      = "public"
+entry-point = "functions"
+
+[vars]
+SQL_API_URL   = "https://your-http-sql-api.example.com"
+JWKS_URI      = "https://login.microsoftonline.com/.../keys"
+AAD_CLIENT_ID = "..."
+AAD_ISSUER    = "https://login.microsoftonline.com/.../v2.0"
