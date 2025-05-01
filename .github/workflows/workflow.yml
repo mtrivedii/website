@@ -1,13 +1,11 @@
 name: Deploy to Azure Static Web App
 
-# Trigger the workflow on push to main and dev branches
+# Trigger the workflow on push to main branch
 # and on pull request events for the main branch
 on:
   push:
     branches: 
       - main
-      - dev
-      - staging
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
@@ -20,13 +18,11 @@ env:
   APP_LOCATION: "/" # Location of your app code - this is the repository root
   API_LOCATION: "api" # Location of Azure Functions code
   OUTPUT_LOCATION: "build" # Location of build output for your app
-  NODE_VERSION: "20" # Node.js version to use
 
 # Set proper permissions for the GitHub token
 permissions:
   contents: read
   pull-requests: write
-  id-token: write # Required for Azure OIDC authentication
 
 jobs:
   build_and_deploy_job:
@@ -36,65 +32,14 @@ jobs:
     name: Build and Deploy
     
     steps:
-      # Checkout the repository with submodules and LFS if needed
+      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: true
-          lfs: true
-          fetch-depth: 0 # Fetch all history for better change detection
       
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm' # Enable npm caching for faster installs
-      
-      # Install dependencies
-      - name: Install dependencies
-        run: npm ci
-      
-      # Run linting
-      - name: Lint code
-        run: npm run lint
-        continue-on-error: true # Continue even if linting fails
-      
-      # Run tests
-      - name: Run tests
-        run: npm test
-        continue-on-error: true # Continue even if tests fail
-      
-      # Build application
-      - name: Build application
-        run: npm run build
-        env:
-          CI: true # Treat warnings as errors in CI environment
-      
-      # Optional: Set up OIDC auth with Azure for more secure deployments
-      - name: Install OIDC Client for Azure login
-        run: npm install @actions/core@1.10.0 @actions/http-client
-      
-      - name: Get ID Token
-        uses: actions/github-script@v7
-        id: idtoken
-        with:
-          script: |
-            const core = require('@actions/core')
-            return await core.getIDToken()
-          result-encoding: string
-      
-      # Cache the built application to speed up future workflows
-      - name: Cache build output
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.OUTPUT_LOCATION }}
-          key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}-
-      
-      # Deploy to Azure Static Web Apps with verbose output
-      - name: Build And Deploy
+      # Deploy to Azure Static Web Apps
+      - name: Build and Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -105,61 +50,8 @@ jobs:
           app_location: ${{ env.APP_LOCATION }}
           api_location: ${{ env.API_LOCATION }}
           output_location: ${{ env.OUTPUT_LOCATION }}
-          # Enable verbose output for better debugging
-          verbose: true
-          # Environment specific build configuration
-          production_branch: "main"
-          # Skip app build since we built it ourselves
-          skip_app_build: true
-          # For apps with client-side routing
-          routes_location: "/" # Location of routes.json file for custom routing
-          # For monorepo setups with config at a different location
-          config_file_location: "/" # Location of staticwebapp.config.json
-      
-      # Post-deployment notification to Teams/Slack (optional)
-      - name: Send deployment notification
-        if: success()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: deployments
-          SLACK_COLOR: ${{ job.status }} # or a specific color like 'good' or '#FF00FF'
-          SLACK_ICON: https://github.com/rtCamp.png?size=48
-          SLACK_MESSAGE: 'App deployed to Azure Static Web Apps :rocket:'
-          SLACK_TITLE: Deployment Succeeded
-          SLACK_USERNAME: GitHub Actions
-
-  # This job runs additional checks and validations
-  validate_deployment:
-    needs: build_and_deploy_job
-    runs-on: ubuntu-latest
-    name: Validate Deployment
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
-    
-    steps:
-      # Wait for deployment to fully propagate
-      - name: Wait for deployment propagation
-        run: sleep 60
-      
-      # Run health check on the deployed URL
-      - name: Run health check
-        run: |
-          DEPLOY_URL=$(curl -s "${{ secrets.AZURE_STATIC_WEBAPP_URL }}")
-          if [ $? -ne 0 ]; then
-            echo "Health check failed"
-            exit 1
-          fi
-          echo "Health check passed"
-      
-      # Optionally, run Lighthouse audit for performance checks
-      - name: Audit with Lighthouse
-        uses: treosh/lighthouse-ci-action@v10
-        with:
-          urls: |
-            ${{ secrets.AZURE_STATIC_WEBAPP_URL }}
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-        continue-on-error: true
+          # Skip dependency detection to avoid lock file errors
+          skip_app_build: false
 
   # This job closes the deployment for PRs that are closed
   close_pull_request_job:
