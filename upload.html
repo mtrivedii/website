@@ -2,52 +2,371 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Upload Document</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure File Upload</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Add CSP header in HTML as a fallback -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
 <body>
   <div class="container">
-    <h1>📁 Upload Document</h1>
+    <h1>📁 Secure File Upload</h1>
+    
+    <div class="card">
+      <h2>Upload Guidelines</h2>
+      <ul>
+        <li>Maximum file size: 10MB</li>
+        <li>Allowed file types: PDF, DOC, DOCX, TXT, JPG, PNG, GIF, CSV, JSON, XML</li>
+        <li>Files are scanned for security threats</li>
+        <li>Do not upload sensitive or confidential information</li>
+      </ul>
+    </div>
+    
     <form id="uploadForm" enctype="multipart/form-data">
-      <input type="file" name="file" id="file" required />
-      <button class="button" type="submit">Upload</button>
+      <div class="file-input-container">
+        <input type="file" name="file" id="file" required />
+        <div id="fileInfo" class="file-info hidden">
+          <div>Selected file: <span id="fileName"></span></div>
+          <div>Size: <span id="fileSize"></span></div>
+          <div>Type: <span id="fileType"></span></div>
+        </div>
+      </div>
+      
+      <!-- Add CSRF token as hidden field -->
+      <input type="hidden" id="csrfToken" name="csrfToken" value="">
+      
+      <div class="button-container">
+        <button class="button" type="submit" id="uploadButton">Upload</button>
+        <button class="button secondary" type="button" id="cancelButton">Cancel</button>
+      </div>
     </form>
-    <p id="uploadMessage" style="margin-top: 1rem;"></p>
-    <p><a class="button" href="index.html">← Back</a></p>
+    
+    <div id="uploadProgress" class="progress-container hidden">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div id="progressText">0%</div>
+    </div>
+    
+    <div id="uploadMessage" class="message-container hidden"></div>
+    
+    <p><a class="button" href="index.html">← Back to Home</a></p>
   </div>
 
   <script>
-    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const file = document.getElementById("file").files[0];
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const msgBox = document.getElementById("uploadMessage");
-      msgBox.innerText = "Uploading...";
-
-      try {
-        const res = await fetch("https://maanit-func.azurewebsites.net/api/upload", {
-          method: "POST",
-          body: formData
-        });
-
-        const contentType = res.headers.get("content-type") || "";
-        let message = "";
-
-        if (contentType.includes("application/json")) {
-          const data = await res.json();
-          message = data.message || data.error || "Upload complete.";
-        } else {
-          const text = await res.text();
-          message = `Upload failed: ${text}`;
+    // Get CSRF token from cookie
+    function getCSRFToken() {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      
+      return cookieValue || '';
+    }
+    
+    // Set the CSRF token in the form
+    document.getElementById('csrfToken').value = getCSRFToken();
+    
+    // File validation functions
+    const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'csv', 'json', 'xml'];
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    
+    function validateFile(file) {
+      // Check if file is provided
+      if (!file) {
+        return { valid: false, message: 'No file selected' };
+      }
+      
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        return { 
+          valid: false, 
+          message: `File too large (${formatFileSize(file.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE)}.` 
+        };
+      }
+      
+      // Check file extension
+      const fileName = file.name.toLowerCase();
+      const fileExt = fileName.split('.').pop();
+      
+      if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
+        return { 
+          valid: false, 
+          message: `File type .${fileExt} is not allowed. Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}` 
+        };
+      }
+      
+      // Basic file type validation - would be better with real content validation on server
+      const fileTypeValid = validateFileType(file.type, fileExt);
+      if (!fileTypeValid) {
+        return { 
+          valid: false, 
+          message: `File content type doesn't match extension. Expected a valid ${fileExt.toUpperCase()} file.` 
+        };
+      }
+      
+      return { valid: true };
+    }
+    
+    function validateFileType(mimeType, extension) {
+      // Map extensions to expected MIME types
+      const mimeMap = {
+        'pdf': 'application/pdf',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'txt': 'text/plain',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'csv': 'text/csv',
+        'json': 'application/json',
+        'xml': 'application/xml'
+      };
+      
+      // Check if MIME type matches expected type for extension
+      return mimeMap[extension] === mimeType;
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' bytes';
+      else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+    
+    // Display file info when a file is selected
+    document.getElementById('file').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const fileInfo = document.getElementById('fileInfo');
+      const fileName = document.getElementById('fileName');
+      const fileSize = document.getElementById('fileSize');
+      const fileType = document.getElementById('fileType');
+      const uploadMessage = document.getElementById('uploadMessage');
+      
+      // Reset message
+      uploadMessage.classList.add('hidden');
+      uploadMessage.classList.remove('error', 'success');
+      uploadMessage.textContent = '';
+      
+      if (file) {
+        // Display file information
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileType.textContent = file.type || 'Unknown';
+        fileInfo.classList.remove('hidden');
+        
+        // Validate file
+        const validation = validateFile(file);
+        if (!validation.valid) {
+          uploadMessage.textContent = validation.message;
+          uploadMessage.classList.add('error');
+          uploadMessage.classList.remove('hidden');
+          // Reset file input
+          this.value = '';
+          fileInfo.classList.add('hidden');
         }
-
-        msgBox.innerText = message;
-      } catch (err) {
-        msgBox.innerText = `Upload error: ${err.message}`;
+      } else {
+        fileInfo.classList.add('hidden');
       }
     });
+    
+    // Handle form submission with enhanced security
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const file = document.getElementById('file').files[0];
+      const uploadMessage = document.getElementById('uploadMessage');
+      const uploadProgress = document.getElementById('uploadProgress');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const uploadButton = document.getElementById('uploadButton');
+      
+      // Reset message
+      uploadMessage.classList.add('hidden');
+      uploadMessage.classList.remove('error', 'success');
+      uploadMessage.textContent = '';
+      
+      // Validate file again
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        uploadMessage.textContent = validation.message;
+        uploadMessage.classList.add('error');
+        uploadMessage.classList.remove('hidden');
+        return;
+      }
+      
+      // Create form data with the file
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Get fresh CSRF token (in case it's been updated)
+      const csrfToken = getCSRFToken();
+      
+      try {
+        // Disable upload button and show progress
+        uploadButton.disabled = true;
+        uploadProgress.classList.remove('hidden');
+        
+        // Make the request with proper security headers
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+        
+        // Track upload progress
+        xhr.upload.onprogress = function(event) {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            progressFill.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete + '%';
+          }
+        };
+        
+        // Handle response
+        xhr.onload = function() {
+          uploadProgress.classList.add('hidden');
+          uploadButton.disabled = false;
+          
+          let message = '';
+          let isError = false;
+          
+          try {
+            const response = JSON.parse(xhr.responseText);
+            message = response.message || 'Upload complete';
+            
+            // Check for error response
+            if (xhr.status >= 400) {
+              isError = true;
+            }
+          } catch (err) {
+            message = 'Error processing server response';
+            isError = true;
+          }
+          
+          // Display result message
+          uploadMessage.textContent = message;
+          uploadMessage.classList.toggle('error', isError);
+          uploadMessage.classList.toggle('success', !isError);
+          uploadMessage.classList.remove('hidden');
+          
+          // Reset form on success
+          if (!isError) {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileInfo').classList.add('hidden');
+          }
+        };
+        
+        // Handle network errors
+        xhr.onerror = function() {
+          uploadProgress.classList.add('hidden');
+          uploadButton.disabled = false;
+          
+          uploadMessage.textContent = 'Network error occurred';
+          uploadMessage.classList.add('error');
+          uploadMessage.classList.remove('hidden');
+        };
+        
+        // Send the request
+        xhr.send(formData);
+      } catch (err) {
+        uploadProgress.classList.add('hidden');
+        uploadButton.disabled = false;
+        
+        uploadMessage.textContent = `Upload error: ${err.message}`;
+        uploadMessage.classList.add('error');
+        uploadMessage.classList.remove('hidden');
+      }
+    });
+    
+    // Cancel button resets the form
+    document.getElementById('cancelButton').addEventListener('click', function() {
+      document.getElementById('uploadForm').reset();
+      document.getElementById('fileInfo').classList.add('hidden');
+      document.getElementById('uploadMessage').classList.add('hidden');
+      document.getElementById('uploadProgress').classList.add('hidden');
+      document.getElementById('uploadButton').disabled = false;
+    });
   </script>
+  
+  <style>
+    /* Additional styles for upload components */
+    .file-input-container {
+      margin-bottom: 1rem;
+    }
+    
+    .file-info {
+      background-color: #222;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+    }
+    
+    .file-info div {
+      margin: 0.3rem 0;
+    }
+    
+    .button-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .button.secondary {
+      background-color: #444;
+      box-shadow: 0 0 8px rgba(68, 68, 68, 0.5);
+    }
+    
+    .button.secondary:hover {
+      background-color: #555;
+      box-shadow: 0 0 12px #555, 0 0 20px #555;
+    }
+    
+    .progress-container {
+      margin: 1rem 0;
+    }
+    
+    .progress-bar {
+      height: 10px;
+      background-color: #222;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 0.3rem;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background-color: #00e6b8;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    #progressText {
+      font-size: 0.8rem;
+      text-align: right;
+    }
+    
+    .message-container {
+      padding: 0.8rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+      font-weight: bold;
+    }
+    
+    .message-container.error {
+      background-color: rgba(255, 69, 58, 0.2);
+      border: 1px solid #ff453a;
+      color: #ff453a;
+    }
+    
+    .message-container.success {
+      background-color: rgba(48, 209, 88, 0.2);
+      border: 1px solid #30d158;
+      color: #30d158;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
 </body>
 </html>
