@@ -8,4 +8,8 @@ pages_build_output_dir = "public"
 JWKS_URI      = "https://login.microsoftonline.com/.../discovery/v2.0/keys"
 AAD_CLIENT_ID = "your-client-id"
 AAD_ISSUER    = "https://login.microsoftonline.com/.../v2.0"
- 
+
+[[d1_databases]]
+binding = "DB"
+database_name = "maanit-db"
+database_id = "0d147724-9810-4e28-b489-b00a514df7dc" 
