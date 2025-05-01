@@ -5,52 +5,376 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Add CSP header in HTML as a fallback -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
 <body>
   <div class="container">
     <h1>👥 User Directory</h1>
+    
+    <div class="card">
+      <div class="search-filters">
+        <div class="filter-group">
+          <label for="searchInput">Search:</label>
+          <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
+        </div>
+        <div class="filter-group">
+          <label for="roleFilter">Role:</label>
+          <select id="roleFilter" class="role-select">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
     <div id="users">
       <div class="spinner"></div>
     </div>
+    
+    <div id="pagination" class="pagination hidden">
+      <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
+      <span id="pageInfo" class="page-info">Page 1 of 1</span>
+      <button id="nextPage" class="button pagination-button">Next &raquo;</button>
+    </div>
+    
+    <div id="errorMessage" class="message-container error hidden"></div>
+    
     <p><a class="button" href="index.html">← Home</a></p>
   </div>
 
   <script>
+    // State management for user data and pagination
+    const state = {
+      users: [],
+      filteredUsers: [],
+      currentPage: 1,
+      itemsPerPage: 10,
+      loaded: false,
+      error: null
+    };
+    
+    // Get CSRF token from cookie for secure operations
+    function getCSRFToken() {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+      
+      return cookieValue || '';
+    }
+    
+    // Sanitize string to prevent XSS
+    function sanitizeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
+    // Load users with secure error handling
     async function loadUsers() {
       const target = document.getElementById("users");
+      const errorMessage = document.getElementById("errorMessage");
+      
+      // Reset error state
+      errorMessage.classList.add("hidden");
+      errorMessage.textContent = "";
+      
+      // Show loading spinner
+      target.innerHTML = '<div class="spinner"></div>';
+      
       try {
-        const res = await fetch("https://maanit-func.azurewebsites.net/api/users");
-        if (!res.ok) throw new Error(res.status);
+        // Add CSRF token for API security
+        const csrfToken = getCSRFToken();
+        
+        const res = await fetch("/api/users", {
+          method: "GET",
+          headers: {
+            'X-CSRF-TOKEN': csrfToken
+          },
+          credentials: 'same-origin'
+        });
+        
+        if (!res.ok) {
+          // Handle HTTP errors with specific messages
+          let errorText = '';
+          
+          switch (res.status) {
+            case 401:
+              errorText = 'Authentication required. Please log in.';
+              break;
+            case 403:
+              errorText = 'You do not have permission to view user data.';
+              break;
+            case 429:
+              errorText = 'Too many requests. Please try again later.';
+              break;
+            default:
+              errorText = `Server error (${res.status}). Please try again later.`;
+          }
+          
+          throw new Error(errorText);
+        }
+        
         const data = await res.json();
-
-        const table = document.createElement("table");
-        table.className = "fancy-table";
-        table.innerHTML = `
-          <thead>
-            <tr><th>ID</th><th>Email</th><th>Role</th></tr>
-          </thead>
-          <tbody></tbody>
+        
+        // Store the data in our state
+        state.users = data;
+        state.filteredUsers = [...data];
+        state.loaded = true;
+        
+        // Initial render
+        renderUsers();
+        setupFilters();
+        
+      } catch (err) {
+        state.error = err.message;
+        
+        // Display user-friendly error
+        errorMessage.textContent = err.message || 'Failed to load user data';
+        errorMessage.classList.remove("hidden");
+        
+        target.innerHTML = `<p class="warning">Unable to load users. ${err.message}</p>`;
+        
+        console.error('Error loading users:', err);
+      }
+    }
+    
+    // Render users with pagination
+    function renderUsers() {
+      if (!state.loaded) return;
+      
+      const target = document.getElementById("users");
+      const paginationElement = document.getElementById("pagination");
+      const pageInfo = document.getElementById("pageInfo");
+      const prevButton = document.getElementById("prevPage");
+      const nextButton = document.getElementById("nextPage");
+      
+      // Calculate pagination
+      const totalPages = Math.ceil(state.filteredUsers.length / state.itemsPerPage);
+      const startIndex = (state.currentPage - 1) * state.itemsPerPage;
+      const endIndex = Math.min(startIndex + state.itemsPerPage, state.filteredUsers.length);
+      const currentPageUsers = state.filteredUsers.slice(startIndex, endIndex);
+      
+      // Update pagination display
+      pageInfo.textContent = `Page ${state.currentPage} of ${totalPages || 1}`;
+      prevButton.disabled = state.currentPage <= 1;
+      nextButton.disabled = state.currentPage >= totalPages;
+      
+      // Show/hide pagination based on data
+      if (state.filteredUsers.length > state.itemsPerPage) {
+        paginationElement.classList.remove("hidden");
+      } else {
+        paginationElement.classList.add("hidden");
+      }
+      
+      // Create table element
+      const table = document.createElement("table");
+      table.className = "fancy-table";
+      
+      // Table header
+      const thead = document.createElement("thead");
+      thead.innerHTML = `
+        <tr>
+          <th>ID</th>
+          <th>Email</th>
+          <th>Role</th>
+        </tr>
+      `;
+      table.appendChild(thead);
+      
+      // Table body
+      const tbody = document.createElement("tbody");
+      
+      if (currentPageUsers.length === 0) {
+        // No results after filtering
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td colspan="3" class="no-results">No users match your search criteria</td>
         `;
-        const tbody = table.querySelector("tbody");
-
-        data.forEach(u => {
+        tbody.appendChild(tr);
+      } else {
+        // Render user rows with sanitized data
+        currentPageUsers.forEach(user => {
           const tr = document.createElement("tr");
+          
+          // Sanitize all data to prevent XSS
+          const id = sanitizeHtml(user.id);
+          const email = sanitizeHtml(user.email);
+          const role = sanitizeHtml(user.Role || '–');
+          
           tr.innerHTML = `
-            <td data-label="ID">${u.id}</td>
-            <td data-label="Email">${u.email}</td>
-            <td data-label="Role">${u.Role || '–'}</td>
+            <td data-label="ID">${id}</td>
+            <td data-label="Email">${email}</td>
+            <td data-label="Role">${role}</td>
           `;
           tbody.appendChild(tr);
         });
-
-        target.innerHTML = "";
-        target.appendChild(table);
-      } catch (e) {
-        target.innerHTML = `<p class="warning">Error loading users: HTTP ${e.message}</p>`;
       }
+      
+      table.appendChild(tbody);
+      
+      // Update DOM
+      target.innerHTML = "";
+      target.appendChild(table);
     }
-
+    
+    // Set up filtering and search functionality
+    function setupFilters() {
+      const searchInput = document.getElementById("searchInput");
+      const roleFilter = document.getElementById("roleFilter");
+      
+      // Add event listeners
+      searchInput.addEventListener("input", applyFilters);
+      roleFilter.addEventListener("change", applyFilters);
+      
+      // Set up pagination handlers
+      document.getElementById("prevPage").addEventListener("click", () => {
+        if (state.currentPage > 1) {
+          state.currentPage--;
+          renderUsers();
+          // Scroll to top of user list
+          document.getElementById("users").scrollIntoView({ behavior: "smooth" });
+        }
+      });
+      
+      document.getElementById("nextPage").addEventListener("click", () => {
+        const totalPages = Math.ceil(state.filteredUsers.length / state.itemsPerPage);
+        if (state.currentPage < totalPages) {
+          state.currentPage++;
+          renderUsers();
+          // Scroll to top of user list
+          document.getElementById("users").scrollIntoView({ behavior: "smooth" });
+        }
+      });
+    }
+    
+    // Apply filters based on search input and role selection
+    function applyFilters() {
+      const searchTerm = document.getElementById("searchInput").value.toLowerCase();
+      const roleFilter = document.getElementById("roleFilter").value.toLowerCase();
+      
+      // Filter the users based on search term and role
+      state.filteredUsers = state.users.filter(user => {
+        const email = (user.email || '').toLowerCase();
+        const role = (user.Role || '').toLowerCase();
+        
+        const matchesSearch = !searchTerm || email.includes(searchTerm);
+        const matchesRole = !roleFilter || role === roleFilter;
+        
+        return matchesSearch && matchesRole;
+      });
+      
+      // Reset to first page and re-render
+      state.currentPage = 1;
+      renderUsers();
+    }
+    
+    // Initialize
     loadUsers();
   </script>
+  
+  <style>
+    /* Additional styles for user directory */
+    .search-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .search-input,
+    .role-select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background-color: #222;
+      color: #fff;
+      margin-top: 0.3rem;
+      min-width: 200px;
+    }
+    
+    .search-input:focus,
+    .role-select:focus {
+      border-color: #00e6b8;
+      outline: none;
+      box-shadow: 0 0 4px rgba(0, 230, 184, 0.5);
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 1rem 0;
+      gap: 1rem;
+    }
+    
+    .pagination-button {
+      padding: 8px 15px;
+    }
+    
+    .pagination-button:disabled {
+      background-color: #333;
+      cursor: not-allowed;
+      opacity: 0.5;
+      box-shadow: none;
+    }
+    
+    .page-info {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+    
+    .message-container {
+      padding: 0.8rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+      font-weight: bold;
+    }
+    
+    .message-container.error {
+      background-color: rgba(255, 69, 58, 0.2);
+      border: 1px solid #ff453a;
+      color: #ff453a;
+    }
+    
+    .no-results {
+      text-align: center;
+      padding: 2rem !important;
+      font-style: italic;
+      color: #aaa;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    @media (max-width: 600px) {
+      .search-filters {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      
+      .filter-group {
+        width: 100%;
+      }
+      
+      .search-input,
+      .role-select {
+        width: 100%;
+      }
+    }
+  </style>
 </body>
 </html>
