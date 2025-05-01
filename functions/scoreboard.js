@@ -1,36 +1,44 @@
-// functions/scoreboard.js
-import {
-  extractUserInfo, requireRole, // you can inline a simple role‐check
-  checkRateLimit, logSecurityEvent
-} from './auth-utilities.js';
+import { decodeJwt } from 'jose';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
   const requestId = crypto.randomUUID();
 
-  // Auth + role
-  const userInfo = await extractUserInfo(request, env);
-  if (!userInfo.isAuthenticated) {
+  // 1. Authenticate using Cloudflare Access
+  const jwt = request.headers.get("CF-Access-Jwt-Assertion");
+  if (!jwt) {
     return new Response('Unauthorized', { status: 401 });
   }
-  if (!userInfo.allRoles.includes('Scoreboard.Read') && !userInfo.allRoles.includes('admin')) {
+
+  // 2. Extract roles from the JWT
+  let userInfo;
+  try {
+    userInfo = decodeJwt(jwt);
+  } catch {
+    return new Response('Invalid Token', { status: 401 });
+  }
+
+  // 3. Role check (inline)
+  const roles = Array.isArray(userInfo.roles)
+    ? userInfo.roles
+    : userInfo.roles ? [userInfo.roles] : [];
+  if (!roles.includes('Scoreboard.Read') && !roles.includes('admin')) {
     return new Response('Forbidden', { status: 403 });
   }
 
-  // Rate limit
-  const rate = checkRateLimit(userInfo.userId);
-  if (rate.limited) {
-    return new Response('Too Many Requests', {
-      status: 429,
-      headers: { 'Retry-After': String(rate.reset) }
-    });
-  }
+  // 4. (Optional) Rate limiting can be handled by Cloudflare dashboard rules
+  // If you want in-code rate limiting, you can implement it here (not recommended for edge functions)
 
-  // Fetch scoreboard via HTTP API
+  // 5. Fetch scoreboard via HTTP API
   const resp = await fetch(env.SQL_API_URL + '/scoreboard');
   if (!resp.ok) return new Response('Internal Error', { status: 500 });
   const data = await resp.json();
 
-  logSecurityEvent('ScoreboardAccess', { userId: userInfo.userId, requestId });
-  return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  // 6. (Optional) Log security event (use console.warn for basic logging)
+  console.warn('ScoreboardAccess', { userId: userInfo.sub, requestId });
+
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }

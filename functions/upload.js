@@ -1,28 +1,27 @@
-// functions/upload.js
-import {
-  extractUserInfo, checkRateLimit,
-  detectSuspiciousPatterns, logSecurityEvent
-} from './auth-utilities.js';
+import { decodeJwt } from 'jose';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
   const requestId = crypto.randomUUID();
 
-  // Auth (any authenticated user)
-  const userInfo = await extractUserInfo(request, env);
-  if (!userInfo.isAuthenticated) {
+  // 1. Authenticate using Cloudflare Access
+  const jwt = request.headers.get("CF-Access-Jwt-Assertion");
+  if (!jwt) {
     return new Response('Unauthorized', { status: 401 });
   }
-
-  // Rate limit by IP
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  const rate = checkRateLimit(`upload:${ip}`, 5, 60_000);
-  if (rate.limited) {
-    logSecurityEvent('UploadRateLimitExceeded', { ip, requestId });
-    return new Response('Too Many Requests', { status: 429 });
+  let userInfo;
+  try {
+    userInfo = decodeJwt(jwt);
+  } catch {
+    return new Response('Invalid Token', { status: 401 });
   }
 
-  // JSON parse + size check
+  // 2. (Recommended) Rate limit uploads using Cloudflare dashboard rules
+  // If you want in-code rate limiting (not recommended for edge), you could implement it here.
+  // But Cloudflare's built-in rate limiting is more robust and scalable.
+  // Remove in-code rate limiting for production.
+
+  // 3. Parse and validate JSON body
   let body;
   try {
     body = await request.json();
@@ -36,16 +35,16 @@ export async function onRequestPost(context) {
     return new Response('Invalid filename', { status: 400 });
   }
 
-  // Log via HTTP API
+  // 4. Log upload via HTTP API
   await fetch(env.SQL_API_URL + '/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename, ipAddress, requestId })
+    body: JSON.stringify({ filename, ipAddress, requestId, user: userInfo.email || userInfo.sub })
   });
 
-  if (detectSuspiciousPatterns(request)) {
-    logSecurityEvent('SuspiciousUpload', { ip, filename, requestId });
-  }
+  // 5. (Optional) Log suspicious uploads (use WAF for production)
+  // For basic logging:
+  // console.warn('SuspiciousUpload', { ip: request.headers.get('cf-connecting-ip'), filename, requestId });
 
   return new Response(JSON.stringify({ message: 'OK', requestId }), { status: 200 });
 }
