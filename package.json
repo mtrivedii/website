@@ -2,11 +2,17 @@
     "name": "website",
     "version": "1.0.0",
     "private": true,
+    "type": "module",
     "scripts": {
-      "dev": "npx serve public"
+      "dev":   "wrangler pages dev",
+      "build": "exit 0",
+      "deploy":"wrangler pages publish ."
+    },
+    "dependencies": {
+      "jose": "^4.15.9"
     },
     "devDependencies": {
-      "serve": "^14.2.0"
+      "wrangler": "^3.101.0"
     }
   }
   
