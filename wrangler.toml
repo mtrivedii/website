@@ -8,3 +8,4 @@ pages_build_output_dir = "public"
 JWKS_URI      = "https://login.microsoftonline.com/.../discovery/v2.0/keys"
 AAD_CLIENT_ID = "your-client-id"
 AAD_ISSUER    = "https://login.microsoftonline.com/.../v2.0"
+ 
