@@ -1,14 +1,11 @@
-// functions/auth-utilities.js
 import { jwtVerify } from 'jose';
 
 const tokenBlacklist = new Set();
 
 export async function extractUserInfo(request, env) {
-  // 1) Easy Auth header (if using CF Access with JWT)
   const auth = request.headers.get('Authorization')?.split(' ')[1];
   if (!auth) return { isAuthenticated: false };
 
-  // 2) Verify JWT against your AAD keys (set in wrangler.toml as env vars)
   let payload;
   try {
     const { payload: pl } = await jwtVerify(
@@ -32,13 +29,15 @@ export async function extractUserInfo(request, env) {
     return { isAuthenticated: false };
   }
 
-  // 3) Extract user info & roles
-  const roles = Array.isArray(payload.roles) ? payload.roles : [];
+  // Allow for roles as array or string
+  const roles = Array.isArray(payload.roles)
+    ? payload.roles
+    : payload.roles ? [payload.roles] : [];
   return {
     isAuthenticated: true,
     userId:          payload.oid || payload.sub,
     roles,
-    allRoles:       roles
+    allRoles:        roles
   };
 }
 
@@ -56,12 +55,12 @@ export function checkRateLimit(key, limit = 60, windowMs = 60_000) {
 }
 
 export function detectSuspiciousPatterns(request) {
-  // very basic – expand as needed
   const url = request.url;
-  return /(<script|union\s+select)/i.test(url);
+  const isSuspicious = /(<script|union\s+select)/i.test(url);
+  return { isSuspicious };
 }
 
 export function logSecurityEvent(name, props = {}) {
-  // You can push to a Service like Logflare or to App Insights via its REST API
+  // For production, send to Logflare, Sentry, etc.
   console.warn(`[SECURITY] ${name}`, props);
 }
