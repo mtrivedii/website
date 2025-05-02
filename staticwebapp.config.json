@@ -1,1 +1,124 @@
-{"routes":[{"route":"/login","redirect":"/.auth/login/aad?post_login_redirect_uri=/"},{"route":"/logout","redirect":"/.auth/logout?post_logout_redirect_uri=/"},{"route":"/api/scoreboard","allowedRoles":["anonymous","authenticated"],"rewrite":"https://maanit-func.azurewebsites.net/api/scoreboard","methods":["GET","OPTIONS"],"headers":{"Content-Type":"application/json"}},{"route":"/api/users","allowedRoles":["anonymous","authenticated"],"rewrite":"https://maanit-func.azurewebsites.net/api/users","methods":["GET","POST","OPTIONS"]},{"route":"/api/upload","allowedRoles":["anonymous","authenticated"],"rewrite":"https://maanit-func.azurewebsites.net/api/upload","methods":["POST","OPTIONS"]},{"route":"/api/*","allowedRoles":["anonymous","authenticated"],"rewrite":"https://maanit-func.azurewebsites.net/api/{rest}"},{"route":"/scoreboard.html","serve":"/scoreboard.html","statusCode":200,"headers":{"Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN","Cache-Control":"no-cache, no-store, must-revalidate"}},{"route":"/index.html","serve":"/index.html","statusCode":200,"headers":{"Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN","Cache-Control":"no-cache, no-store, must-revalidate"}},{"route":"/users.html","allowedRoles":["authenticated"],"serve":"/users.html","statusCode":200,"headers":{"Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN","Cache-Control":"no-cache, no-store, must-revalidate"}},{"route":"/admin.html","allowedRoles":["admin"],"serve":"/admin.html","statusCode":200,"headers":{"Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN","Cache-Control":"no-cache, no-store, must-revalidate"}},{"route":"/robots.txt","serve":"/robots.txt"},{"route":"/","serve":"/index.html","statusCode":200,"headers":{"Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'","X-Content-Type-Options":"nosniff","X-Frame-Options":"SAMEORIGIN","Cache-Control":"no-cache, no-store, must-revalidate"}}],"navigationFallback":{"rewrite":"/index.html","exclude":["/.auth/*","/api/*","/*.js","/*.css","/*.png","/*.jpg","/*.svg","/*.html"]},"globalHeaders":{"Cache-Control":"no-cache, no-store, must-revalidate","Pragma":"no-cache","Expires":"0"},"mimeTypes":{".json":"application/json"}}
+{
+  "routes": [
+    {
+      "route": "/login",
+      "redirect": "/.auth/login/aad?post_login_redirect_uri=/"
+    },
+    {
+      "route": "/logout",
+      "redirect": "/.auth/logout?post_logout_redirect_uri=/"
+    },
+    {
+      "route": "/api/scoreboard",
+      "allowedRoles": ["anonymous","authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/scoreboard",
+      "methods": ["GET","OPTIONS"],
+      "headers": { "Content-Type": "application/json" }
+    },
+    {
+      "route": "/api/users",
+      "allowedRoles": ["anonymous","authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/users",
+      "methods": ["GET","POST","OPTIONS"]
+    },
+    {
+      "route": "/api/upload",
+      "allowedRoles": ["anonymous","authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/upload",
+      "methods": ["POST","OPTIONS"]
+    },
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous","authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/{rest}"
+    },
+    {
+      "route": "/scoreboard.html",
+      "serve": "/scoreboard.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/index.html",
+      "serve": "/index.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/users.html",
+      "allowedRoles": ["authenticated"],
+      "serve": "/users.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/admin.html",
+      "allowedRoles": ["admin"],
+      "serve": "/admin.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/robots.txt",
+      "serve": "/robots.txt"
+    },
+    {
+      "route": "/",
+      "serve": "/index.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/.auth/*",
+      "/api/*",
+      "/*.js",
+      "/*.js*",
+      "/*.css",
+      "/*.css*",
+      "/*.png",
+      "/*.png*",
+      "/*.jpg",
+      "/*.jpg*",
+      "/*.svg",
+      "/*.svg*",
+      "/*.html",
+      "/*.html*"
+    ]
+  },
+  "globalHeaders": {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}
