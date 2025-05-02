@@ -1,69 +1,47 @@
 {
-    "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
-    "data-source": {
-      "database-type": "mssql",
-      "options": {
-        "set-session-context": false 
-      },
-      "connection-string": "@env('DATABASE_CONNECTION_STRING')"
+  "version": "1.0.0",
+  "runtime": {
+    "rest": {
+      "path": "/data-api/rest"
     },
-    "runtime": {
-      "rest": {
-        "enabled": true,
-        "path": "/rest"
-      },
-      "graphql": {
-        "allow-introspection": true,
-        "enabled": true,
-        "path": "/graphql"
-      },
-      "host": {
-        "mode": "production",
-        "cors": {
-          "origins": ["http://localhost:4280", "https://maanit-func.azurewebsites.net"],
-          "allow-credentials": false
-        },
-        "authentication": {
-          "provider": "StaticWebApps"
-        }
-      }
+    "graphql": {
+      "path": "/data-api/graphql"
+    }
+  },
+  "entities": {
+    "Scoreboard": {
+      "source": "dbo.vw_Scoreboard",
+      "primaryKey": "ScoreID",
+      "allowAnonymousGet": true,
+      "permissions": [
+        { "actions": ["read"], "role": "anonymous" }
+      ]
     },
-    "entities": {
-      "Person": {
-        "source": "dbo.MyTestPersonTable",
-        "permissions": [
-          {
-            "actions": ["create", "read", "update", "delete"],
-            "role": "anonymous"
-          }
-        ]
+    "users": {
+      "source": "dbo.users",
+      "primaryKey": "id",
+      "allowAnonymousGet": false,
+      "fields": {
+        "id": { "type": "int" },
+        "email": { "type": "string" },
+        "Role": { "type": "string" }
       },
-      "Scoreboard": {
-        "source": "dbo.vw_Scoreboard",
-        "permissions": [
-          {
-            "actions": ["read"],
-            "role": "anonymous"
-          }
-        ]
-      },
-      "users": {
-        "source": "dbo.users",
-        "permissions": [
-          {
-            "actions": ["read"],
-            "role": "authenticated"
-          }
-        ]
-      },
-      "UploadLogs": {
-        "source": "dbo.UploadLogs",
-        "permissions": [
-          {
-            "actions": ["create", "read"],
-            "role": "anonymous"
-          }
-        ]
-      }
+      "permissions": [
+        { "actions": ["read"], "role": "authenticated" }
+      ]
+    },
+    "UploadLogs": {
+      "source": "dbo.UploadLogs",
+      "primaryKey": "EventId",
+      "permissions": [
+        { "actions": ["create", "read"], "role": "anonymous" }
+      ]
+    },
+    "Person": {
+      "source": "dbo.MyTestPersonTable",
+      "permissions": [
+        { "actions": ["create", "read", "update", "delete"], "role": "anonymous" }
+      ]
     }
   }
+}
