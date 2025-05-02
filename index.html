@@ -90,8 +90,8 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // Extend timeout to 10 seconds
         
-        debugLog('Fetching /api/adminCheck...');
-        const adminResponse = await fetch('/api/adminCheck', {
+        debugLog('Fetching /api/checkAdmin...');
+        const adminResponse = await fetch('/api/checkAdmin', {
           signal: controller.signal,
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
