@@ -8,7 +8,12 @@
       "route": "/logout",
       "redirect": "/.auth/logout?post_logout_redirect_uri=/"
     },
-   
+    {
+      "route": "/api/adminCheck",
+      "allowedRoles": ["anonymous", "authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/checkAdmin",
+      "methods": ["GET", "POST", "OPTIONS"]
+    },
     {
       "route": "/api/users",
       "allowedRoles": ["anonymous", "authenticated"],
@@ -26,10 +31,9 @@
       "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/{rest}"
     },
-
     {
       "route": "/users.html",
-      "allowedRoles": ["authenticated"],
+      "allowedRoles": ["admin"],
       "serve": "/users.html",
       "statusCode": 200,
       "headers": {

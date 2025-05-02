@@ -20,38 +20,56 @@
     <p>Good Luck, LOL.</p>
     <div class="button-container">
       <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button">Login</a>
-      <a href="/users.html" class="button">User Directory</a>
+      <!-- Hide Users Directory for non-admin users -->
+      <a href="/users.html" class="button" id="users-link" style="display:none;">User Directory</a>
       <a href="/upload.html" class="button">File Upload</a>
       <!-- Admin Panel link, hidden by default -->
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
       <!-- Add logout button -->
       <a href="/logout" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
+    <div id="debug-info" style="margin-top: 20px; color: #666; font-size: 12px;"></div>
   </div>
 
   <script>
     // Show loading indicator
     const loadingEl = document.getElementById('loading');
+    const debugInfo = document.getElementById('debug-info');
+    
+    // Helper function for debugging
+    function debugLog(message) {
+      console.log(message);
+      if (debugInfo) {
+        debugInfo.innerHTML += `<div>${message}</div>`;
+      }
+    }
     
     // Helper function to handle errors consistently
     function handleError(error) {
       console.error('Error:', error);
+      debugLog(`Error: ${error.message || 'Unknown error'}`);
       loadingEl.style.display = 'none';
     }
 
     // Check authentication status
     async function checkAuthStatus() {
       try {
+        debugLog('Checking authentication status...');
         const authResponse = await fetch('/.auth/me');
         if (authResponse.ok) {
           const authData = await authResponse.json();
           // If user is authenticated, show logout button
           if (authData && authData.clientPrincipal) {
             document.getElementById('logout-button').style.display = '';
+            debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
             
             // Also check if user is admin
             checkAdminStatus();
+          } else {
+            debugLog('Not authenticated or missing client principal');
           }
+        } else {
+          debugLog(`Auth status check failed: ${authResponse.status}`);
         }
       } catch (error) {
         handleError(error);
@@ -66,10 +84,13 @@
     // Check if user is admin
     async function checkAdminStatus() {
       try {
+        debugLog('Checking admin status...');
+        
         // Set a timeout to avoid hanging
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Extend timeout to 10 seconds
         
+        debugLog('Fetching /api/adminCheck...');
         const adminResponse = await fetch('/api/adminCheck', {
           signal: controller.signal,
           headers: {
@@ -80,14 +101,28 @@
         
         clearTimeout(timeoutId);
         
+        debugLog(`Admin check response: ${adminResponse.status}`);
+        
+        let responseText = '';
+        try {
+          responseText = await adminResponse.text();
+          debugLog(`Response body: ${responseText}`);
+        } catch (e) {
+          debugLog(`Couldn't read response body: ${e.message}`);
+        }
+        
         if (adminResponse.status === 200) {
-          // User is admin, show the Admin Panel link
+          // User is admin, show the Admin Panel link and Users link
+          debugLog('User is admin, showing admin links');
           document.getElementById('admin-panel-link').style.display = '';
+          document.getElementById('users-link').style.display = '';
+        } else {
+          debugLog('User is not admin');
         }
       } catch (error) {
         // If aborted or other error, just log it and continue
         if (error.name === 'AbortError') {
-          console.warn('Admin check timed out');
+          debugLog('Admin check timed out');
         } else {
           handleError(error);
         }
@@ -99,6 +134,7 @@
 
     // When page loads, check authentication status
     window.addEventListener('DOMContentLoaded', () => {
+      debugLog('Page loaded, initiating auth checks');
       checkAuthStatus();
     });
   </script>
@@ -137,6 +173,17 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
+    }
+    
+    #debug-info {
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: left;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #111;
+      margin-top: 20px;
     }
   </style>
 </body>
