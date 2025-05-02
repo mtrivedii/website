@@ -9,10 +9,11 @@
       "redirect": "/.auth/logout?post_logout_redirect_uri=/"
     },
     {
-      "route": "/api/adminCheck",
+      "route": "/api/checkAdmin",
       "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/checkAdmin",
       "methods": ["GET", "POST", "OPTIONS"]
+    
     },
     {
       "route": "/api/users",
