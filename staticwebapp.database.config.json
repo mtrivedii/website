@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "connectionStrings": {
-    "myConnection": {
+    "SqlConnectionString": {
       "connectionString": "Server=tcp:maanit-server.database.windows.net,1433;Database=maanit-db;Authentication=Active Directory Managed Identity;",
       "type": "sqlserver"
     }
@@ -17,8 +17,20 @@
     "users": {
       "source": "dbo.users",
       "primaryKey": "id",
+      "fields": {
+        "id": { "type": "int" },
+        "email": { "type": "string" },
+        "Role": { "type": "string" }
+      },
       "permissions": [
         { "actions": ["read"], "role": "authenticated" }
+      ]
+    },
+    "UploadLogs": {
+      "source": "dbo.UploadLogs",
+      "primaryKey": "EventId",
+      "permissions": [
+        { "actions": ["create", "read"], "role": "anonymous" }
       ]
     }
   }
