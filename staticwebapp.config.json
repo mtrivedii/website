@@ -46,17 +46,6 @@
       }
     },
     {
-      "route": "/index.html",
-      "serve": "/index.html",
-      "statusCode": 200,
-      "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "SAMEORIGIN",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
       "route": "/users.html",
       "allowedRoles": ["authenticated"],
       "serve": "/users.html",
