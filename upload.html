@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Secure File Upload</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <!-- Enhanced cache control headers -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <!-- Add CSP header in HTML as a fallback -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
@@ -123,8 +128,17 @@
         'xml': 'application/xml'
       };
       
+      // If browser doesn't report MIME type correctly, give benefit of the doubt
+      if (!mimeType) return true;
+      
       // Check if MIME type matches expected type for extension
-      return mimeMap[extension] === mimeType;
+      // More permissive - allow if it at least contains the general type
+      const expectedType = mimeMap[extension];
+      if (!expectedType) return true;
+      
+      return mimeType.includes(expectedType.split('/')[0]) || 
+             mimeType.includes(expectedType.split('/')[1]) ||
+             mimeType === expectedType;
     }
     
     function formatFileSize(bytes) {
@@ -206,10 +220,11 @@
         uploadButton.disabled = true;
         uploadProgress.classList.remove('hidden');
         
-        // Make the request with proper security headers
+        // Make the request with proper security headers and timeout
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/upload');
         xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+        xhr.timeout = 30000; // 30 second timeout
         
         // Track upload progress
         xhr.upload.onprogress = function(event) {
@@ -260,6 +275,16 @@
           uploadButton.disabled = false;
           
           uploadMessage.textContent = 'Network error occurred';
+          uploadMessage.classList.add('error');
+          uploadMessage.classList.remove('hidden');
+        };
+        
+        // Handle timeout
+        xhr.ontimeout = function() {
+          uploadProgress.classList.add('hidden');
+          uploadButton.disabled = false;
+          
+          uploadMessage.textContent = 'Request timed out. Please try again.';
           uploadMessage.classList.add('error');
           uploadMessage.classList.remove('hidden');
         };

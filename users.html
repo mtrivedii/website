@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <!-- Add cache control headers -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <!-- Add CSP header in HTML as a fallback -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
@@ -89,16 +93,25 @@
       target.innerHTML = '<div class="spinner"></div>';
       
       try {
+        // Add timeout and cache control
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
         // Add CSRF token for API security
         const csrfToken = getCSRFToken();
         
         const res = await fetch("/api/users", {
           method: "GET",
+          signal: controller.signal,
           headers: {
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': csrfToken,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
           },
           credentials: 'same-origin'
         });
+        
+        clearTimeout(timeoutId);
         
         if (!res.ok) {
           // Handle HTTP errors with specific messages
@@ -139,7 +152,11 @@
         errorMessage.textContent = err.message || 'Failed to load user data';
         errorMessage.classList.remove("hidden");
         
-        target.innerHTML = `<p class="warning">Unable to load users. ${err.message}</p>`;
+        if (err.name === 'AbortError') {
+          target.innerHTML = `<p class="warning">Request timed out. Please try again.</p>`;
+        } else {
+          target.innerHTML = `<p class="warning">Unable to load users. ${err.message}</p>`;
+        }
         
         console.error('Error loading users:', err);
       }
@@ -275,8 +292,23 @@
       renderUsers();
     }
     
-    // Initialize
-    loadUsers();
+    // Add automatic retry if initial load fails
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    function loadWithRetry() {
+      loadUsers().catch(error => {
+        console.error("Load failed:", error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retrying (${retryCount}/${maxRetries})...`);
+          setTimeout(loadWithRetry, 1000);
+        }
+      });
+    }
+    
+    // Initialize with retry capability
+    loadWithRetry();
   </script>
   
   <style>

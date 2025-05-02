@@ -4,35 +4,141 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Maanit's Web App</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <!-- Add cache control meta tags -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 </head>
 <body>
-  <h1>Welcome to Maanit's Web App</h1>
-  <p>Good Luck, LOL.</p>
-  <div>
-    <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button">Login</a>
-    <a href="/users.html" class="button">User Directory</a>
-    <a href="/upload.html" class="button">File Upload</a>
-    <a href="/scoreboard.html" class="button">Scoreboard</a>
-    <!-- Admin Panel link, hidden by default -->
-    <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
+  <div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
   </div>
+
+  <div class="container">
+    <h1>Welcome to Maanit's Web App</h1>
+    <p>Good Luck, LOL.</p>
+    <div class="button-container">
+      <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button">Login</a>
+      <a href="/users.html" class="button">User Directory</a>
+      <a href="/upload.html" class="button">File Upload</a>
+      <a href="/scoreboard.html" class="button">Scoreboard</a>
+      <!-- Admin Panel link, hidden by default -->
+      <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
+      <!-- Add logout button -->
+      <a href="/logout" class="button" id="logout-button" style="display:none;">Logout</a>
+    </div>
+  </div>
+
   <script>
-    // After the page loads, check if the user is an admin
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/adminCheck')
-        .then(res => {
-          if (res.status === 200) {
-            // User is admin, show the Admin Panel link
-            document.getElementById('admin-panel-link').style.display = '';
+    // Show loading indicator
+    const loadingEl = document.getElementById('loading');
+    
+    // Helper function to handle errors consistently
+    function handleError(error) {
+      console.error('Error:', error);
+      loadingEl.style.display = 'none';
+    }
+
+    // Check authentication status
+    async function checkAuthStatus() {
+      try {
+        const authResponse = await fetch('/.auth/me');
+        if (authResponse.ok) {
+          const authData = await authResponse.json();
+          // If user is authenticated, show logout button
+          if (authData && authData.clientPrincipal) {
+            document.getElementById('logout-button').style.display = '';
+            
+            // Also check if user is admin
+            checkAdminStatus();
           }
-          // If 403 or 401, do nothing (link stays hidden)
-        })
-        .catch(err => {
-          // Network or server error, keep link hidden
-          console.error('Error checking admin status:', err);
+        }
+      } catch (error) {
+        handleError(error);
+      } finally {
+        // Hide loading indicator if not checking admin status
+        if (loadingEl.style.display !== 'none') {
+          loadingEl.style.display = 'none';
+        }
+      }
+    }
+
+    // Check if user is admin
+    async function checkAdminStatus() {
+      try {
+        // Set a timeout to avoid hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const adminResponse = await fetch('/api/adminCheck', {
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
         });
+        
+        clearTimeout(timeoutId);
+        
+        if (adminResponse.status === 200) {
+          // User is admin, show the Admin Panel link
+          document.getElementById('admin-panel-link').style.display = '';
+        }
+      } catch (error) {
+        // If aborted or other error, just log it and continue
+        if (error.name === 'AbortError') {
+          console.warn('Admin check timed out');
+        } else {
+          handleError(error);
+        }
+      } finally {
+        // Always hide loading indicator when done
+        loadingEl.style.display = 'none';
+      }
+    }
+
+    // When page loads, check authentication status
+    window.addEventListener('DOMContentLoaded', () => {
+      checkAuthStatus();
     });
   </script>
+
+  <style>
+    /* Loading overlay styles */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(0, 230, 184, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid #00e6b8;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .button-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+  </style>
 </body>
 </html>

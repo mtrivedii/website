@@ -2,14 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <!-- Add cache control meta tags -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- Add CSP header in HTML as a fallback -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'">
 </head>
 <body>
   <div class="container">
     <h1>🔒 Access Denied</h1>
     <p>You must be an administrator to view this page.</p>
-    <p><a class="button" href="/login.html">Login as admin</a></p>
+    <div class="button-container">
+      <a class="button" href="/.auth/login/aad?post_login_redirect_uri=/admin.html">Login as admin</a>
+      <a class="button secondary" href="index.html">← Back to Home</a>
+    </div>
   </div>
 </body>
 </html>
