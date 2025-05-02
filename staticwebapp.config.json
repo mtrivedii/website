@@ -20,19 +20,23 @@
       },
       {
         "route": "/api/users",
-        "allowedRoles": ["anonymous", "authenticated"]
+        "allowedRoles": ["anonymous", "authenticated"],
+        "rewrite": "https://maanit-func.azurewebsites.net/api/users"
       },
       {
         "route": "/api/scoreboard",
-        "allowedRoles": ["anonymous", "authenticated"]
+        "allowedRoles": ["anonymous", "authenticated"],
+        "rewrite": "https://maanit-func.azurewebsites.net/api/scoreboard"
       },
       {
         "route": "/api/upload",
-        "allowedRoles": ["anonymous", "authenticated"]
+        "allowedRoles": ["anonymous", "authenticated"],
+        "rewrite": "https://maanit-func.azurewebsites.net/api/upload"
       },
       {
         "route": "/api/*",
-        "allowedRoles": ["anonymous", "authenticated"]
+        "allowedRoles": ["anonymous", "authenticated"],
+        "rewrite": "https://maanit-func.azurewebsites.net/api/{rest}"
       },
       {
         "route": "/robots.txt",
