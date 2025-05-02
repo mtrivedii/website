@@ -9,8 +9,8 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <!-- Add CSP header in HTML as a fallback -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
+  <!-- Updated CSP to allow inline scripts -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
 <body>
   <div class="container">
@@ -59,16 +59,6 @@
       error: null
     };
     
-    // Get CSRF token from cookie for secure operations
-    function getCSRFToken() {
-      const cookieValue = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-      
-      return cookieValue || '';
-    }
-    
     // Sanitize string to prevent XSS
     function sanitizeHtml(str) {
       if (!str) return '';
@@ -97,14 +87,11 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         
-        // Add CSRF token for API security
-        const csrfToken = getCSRFToken();
-        
+        console.log("Fetching users from API endpoint...");
         const res = await fetch("/api/users", {
           method: "GET",
           signal: controller.signal,
           headers: {
-            'X-CSRF-TOKEN': csrfToken,
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache'
           },
@@ -112,6 +99,8 @@
         });
         
         clearTimeout(timeoutId);
+        
+        console.log("API response status:", res.status);
         
         if (!res.ok) {
           // Handle HTTP errors with specific messages
@@ -134,7 +123,26 @@
           throw new Error(errorText);
         }
         
-        const data = await res.json();
+        const contentType = res.headers.get("content-type");
+        console.log("Response content type:", contentType);
+        
+        // Try to parse response as JSON
+        let data;
+        const responseText = await res.text();
+        console.log("Response preview:", responseText.substring(0, 100) + "...");
+        
+        try {
+          data = JSON.parse(responseText);
+        } catch (err) {
+          console.error("Failed to parse JSON:", err);
+          throw new Error("Invalid response format from server");
+        }
+        
+        console.log("Received data, count:", Array.isArray(data) ? data.length : "not an array");
+        
+        if (!Array.isArray(data)) {
+          throw new Error('Expected array but received ' + typeof data);
+        }
         
         // Store the data in our state
         state.users = data;
@@ -308,7 +316,7 @@
     }
     
     // Initialize with retry capability
-    loadWithRetry();
+    document.addEventListener('DOMContentLoaded', loadWithRetry);
   </script>
   
   <style>
@@ -390,6 +398,15 @@
     
     .hidden {
       display: none;
+    }
+    
+    .warning {
+      color: #ff9500;
+      background-color: rgba(255, 149, 0, 0.1);
+      padding: 1rem;
+      border-radius: 4px;
+      text-align: center;
+      margin: 1rem 0;
     }
     
     @media (max-width: 600px) {
