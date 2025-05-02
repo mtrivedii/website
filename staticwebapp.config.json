@@ -1,0 +1,57 @@
+{
+    "auth": {
+      "identityProviders": {
+        "azureActiveDirectory": {
+          "registration": {
+            "clientIdSettingName": "AAD_CLIENT_ID",
+            "openIdIssuer": "https://login.microsoftonline.com/6d69eb82-d631-4fb0-b1e8-6b4f85197024/v2.0"
+          }
+        }
+      }
+    },
+    "routes": [
+      {
+        "route": "/admin.html",
+        "allowedRoles": ["admin"]
+      },
+      {
+        "route": "/users.html",
+        "allowedRoles": ["authenticated"]
+      },
+      {
+        "route": "/api/users",
+        "allowedRoles": ["anonymous", "authenticated"]
+      },
+      {
+        "route": "/api/scoreboard",
+        "allowedRoles": ["anonymous", "authenticated"]
+      },
+      {
+        "route": "/api/upload",
+        "allowedRoles": ["anonymous", "authenticated"]
+      },
+      {
+        "route": "/api/*",
+        "allowedRoles": ["anonymous", "authenticated"]
+      },
+      {
+        "route": "/robots.txt",
+        "serve": "/robots.txt"
+      },
+      {
+        "route": "/",
+        "serve": "/index.html",
+        "statusCode": 200
+      }
+    ],
+    "navigationFallback": {
+      "rewrite": "/index.html",
+      "exclude": [
+        "/api/*",
+        "/admin.html",
+        "/users.html",
+        "/scoreboard.html",
+        "/upload.html"
+      ]
+    }
+  }
