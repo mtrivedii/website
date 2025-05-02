@@ -11,12 +11,26 @@
     },
     "routes": [
       {
-        "route": "/admin.html",
-        "allowedRoles": ["admin"]
+        "route": "/scoreboard.html",
+        "serve": "/scoreboard.html",
+        "statusCode": 200,
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        }
       },
       {
         "route": "/users.html",
-        "allowedRoles": ["authenticated"]
+        "allowedRoles": ["authenticated"],
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        }
+      },
+      {
+        "route": "/admin.html",
+        "allowedRoles": ["admin"],
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        }
       },
       {
         "route": "/api/users",
@@ -45,7 +59,16 @@
       {
         "route": "/",
         "serve": "/index.html",
-        "statusCode": 200
+        "statusCode": 200,
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        }
+      },
+      {
+        "route": "/*",
+        "headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://ajax.aspnetcdn.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'"
+        }
       }
     ],
     "navigationFallback": {
