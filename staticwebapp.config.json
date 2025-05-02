@@ -49,7 +49,7 @@
     },
     {
       "route": "/admin.html",
-      "allowedRoles": ["admin"],
+      "allowedRoles": ["authenticated", "admin"],
       "serve": "/admin.html",
       "statusCode": 200,
       "headers": {
@@ -71,6 +71,25 @@
       }
     }
   ],
+  "auth": {
+    "rolesSource": "/api/getRoles",
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "userDetailsClaim": "preferred_username",
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/6d69eb82-d631-4fb0-b1e8-6b4f85197024/v2.0",
+          "clientIdSettingName": "AAD_CLIENT_ID",
+          "clientSecretSettingName": "AAD_CLIENT_SECRET"
+        },
+        "login": {
+          "loginParameters": ["response_type=code id_token"]
+        }
+      }
+    }
+  },
+  "platform": {
+    "apiRuntime": "node:16"
+  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
@@ -87,5 +106,19 @@
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
     "Expires": "0"
+  },
+  "responseOverrides": {
+    "401": {
+      "redirect": "/login",
+      "statusCode": 302
+    },
+    "403": {
+      "rewrite": "/403.html",
+      "statusCode": 403
+    },
+    "404": {
+      "rewrite": "/404.html",
+      "statusCode": 404
+    }
   }
 }
