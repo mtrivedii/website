@@ -29,7 +29,7 @@
       <a href="/logout" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
     
-    <!-- Debug info section with clean styling -->
+    <!-- Optional debug panel - can be removed in production -->
     <div id="debug-info" class="debug-panel"></div>
   </div>
 
@@ -37,6 +37,13 @@
     // Show loading indicator
     const loadingEl = document.getElementById('loading');
     const debugInfo = document.getElementById('debug-info');
+    
+    // Helper function to ensure loading indicator is hidden
+    function hideLoader() {
+      if (loadingEl) {
+        loadingEl.style.display = 'none';
+      }
+    }
     
     // Helper function for debugging - with cleaner formatting
     function debugLog(message) {
@@ -49,51 +56,61 @@
     // Helper function to handle errors consistently
     function handleError(error) {
       console.error('Error:', error);
-      debugLog(`Error: ${error.message || 'Unknown error'}`);
-      loadingEl.style.display = 'none';
+      if (debugInfo) {
+        debugLog(`Error: ${error.message || 'Unknown error'}`);
+      }
+      hideLoader();
     }
 
     // Check authentication status
     async function checkAuthStatus() {
       try {
-        debugLog('Page loaded, initiating auth checks');
-        debugLog('Checking authentication status...');
         const authResponse = await fetch('/.auth/me');
         if (authResponse.ok) {
           const authData = await authResponse.json();
           // If user is authenticated, show logout button
           if (authData && authData.clientPrincipal) {
             document.getElementById('logout-button').style.display = '';
-            debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
+            if (debugInfo) {
+              debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
+            }
             
             // Also check if user is admin
             checkAdminStatus();
           } else {
-            debugLog('Not authenticated or missing client principal');
+            if (debugInfo) {
+              debugLog('Not authenticated or missing client principal');
+            }
+            hideLoader();
           }
         } else {
-          debugLog(`Auth status check failed: ${authResponse.status}`);
+          if (debugInfo) {
+            debugLog(`Auth status check failed: ${authResponse.status}`);
+          }
+          hideLoader();
         }
       } catch (error) {
         handleError(error);
-      } finally {
-        // Hide loading indicator if not checking admin status
-        if (loadingEl.style.display !== 'none') {
-          loadingEl.style.display = 'none';
-        }
       }
     }
 
     // Check if user is admin
     async function checkAdminStatus() {
       try {
-        debugLog('Checking admin status...');
-        
         // Set a timeout to avoid hanging
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Extend timeout to 10 seconds
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          hideLoader();
+          if (debugInfo) {
+            debugLog('Admin check timed out');
+          }
+        }, 10000); // 10 second timeout
         
-        debugLog('Fetching /api/checkAdmin...');
+        if (debugInfo) {
+          debugLog('Fetching /api/checkAdmin...');
+        }
+        
         const adminResponse = await fetch('/api/checkAdmin', {
           signal: controller.signal,
           headers: {
@@ -104,40 +121,42 @@
         
         clearTimeout(timeoutId);
         
-        debugLog(`Admin check response: ${adminResponse.status}`);
-        
-        let responseText = '';
-        try {
-          responseText = await adminResponse.text();
-          debugLog(`Response body: ${responseText}`);
-        } catch (e) {
-          debugLog(`Couldn't read response body: ${e.message}`);
+        if (debugInfo) {
+          debugLog(`Admin check response: ${adminResponse.status}`);
         }
         
         if (adminResponse.status === 200) {
           // User is admin, show the Admin Panel link and Users link
-          debugLog('User is admin, showing admin links');
           document.getElementById('admin-panel-link').style.display = '';
           document.getElementById('users-link').style.display = '';
+          if (debugInfo) {
+            debugLog('User is admin, showing admin links');
+          }
         } else {
-          debugLog('User is not admin');
+          if (debugInfo) {
+            debugLog('User is not admin');
+          }
         }
       } catch (error) {
         // If aborted or other error, just log it and continue
-        if (error.name === 'AbortError') {
-          debugLog('Admin check timed out');
-        } else {
+        if (error.name !== 'AbortError') {
           handleError(error);
         }
       } finally {
         // Always hide loading indicator when done
-        loadingEl.style.display = 'none';
+        hideLoader();
       }
     }
 
     // When page loads, check authentication status
     window.addEventListener('DOMContentLoaded', () => {
+      if (debugInfo) {
+        debugLog('Page loaded, initiating auth checks');
+      }
       checkAuthStatus();
+      
+      // Ensure loading indicator is hidden after 15 seconds in any case
+      setTimeout(hideLoader, 15000);
     });
   </script>
 
