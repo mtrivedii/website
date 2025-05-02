@@ -1,24 +1,15 @@
 {
   "version": "1.0.0",
   "connectionStrings": {
-    "DefaultConnection": {
+    "myConnection": {
       "connectionString": "Server=tcp:maanit-server.database.windows.net,1433;Database=maanit-db;Authentication=Active Directory Managed Identity;",
       "type": "sqlserver"
-    }
-  },
-  "runtime": {
-    "rest": {
-      "path": "/data-api/rest"
-    },
-    "graphql": {
-      "path": "/data-api/graphql"
     }
   },
   "entities": {
     "Scoreboard": {
       "source": "dbo.vw_Scoreboard",
       "primaryKey": "ScoreID",
-      "allowAnonymousGet": true,
       "permissions": [
         { "actions": ["read"], "role": "anonymous" }
       ]
@@ -26,27 +17,8 @@
     "users": {
       "source": "dbo.users",
       "primaryKey": "id",
-      "allowAnonymousGet": false,
-      "fields": {
-        "id": { "type": "int" },
-        "email": { "type": "string" },
-        "Role": { "type": "string" }
-      },
       "permissions": [
         { "actions": ["read"], "role": "authenticated" }
-      ]
-    },
-    "UploadLogs": {
-      "source": "dbo.UploadLogs",
-      "primaryKey": "EventId",
-      "permissions": [
-        { "actions": ["create", "read"], "role": "anonymous" }
-      ]
-    },
-    "Person": {
-      "source": "dbo.MyTestPersonTable",
-      "permissions": [
-        { "actions": ["create", "read", "update", "delete"], "role": "anonymous" }
       ]
     }
   }
