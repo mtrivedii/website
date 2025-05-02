@@ -1,6 +1,11 @@
 {
   "version": "1.0.0",
-  "connectionString": "Server=tcp:maanit-server.database.windows.net,1433;Database=maanit-db;Authentication=Active Directory Managed Identity;",
+  "connectionStrings": {
+    "DefaultConnection": {
+      "connectionString": "Server=tcp:maanit-server.database.windows.net,1433;Database=maanit-db;Authentication=Active Directory Managed Identity;",
+      "type": "sqlserver"
+    }
+  },
   "runtime": {
     "rest": {
       "path": "/data-api/rest"
