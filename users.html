@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
-  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <link rel="stylesheet" href="style.css?v=1.0.1">
   <!-- Add cache control headers -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -45,7 +45,10 @@
     
     <div id="errorMessage" class="message-container error hidden"></div>
     
-    <p><a class="button" href="index.html">← Home</a></p>
+    <div class="button-container">
+      <a class="button" href="index.html">← Home</a>
+      <button id="retryButton" class="button">Retry Loading</button>
+    </div>
   </div>
 
   <script>
@@ -74,10 +77,12 @@
     async function loadUsers() {
       const target = document.getElementById("users");
       const errorMessage = document.getElementById("errorMessage");
+      const pagination = document.getElementById("pagination");
       
-      // Reset error state
+      // Reset error state and show loading
       errorMessage.classList.add("hidden");
       errorMessage.textContent = "";
+      pagination.classList.add("hidden");
       
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
@@ -92,6 +97,7 @@
           method: "GET",
           signal: controller.signal,
           headers: {
+            'Accept': 'application/json',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache'
           },
@@ -101,6 +107,7 @@
         clearTimeout(timeoutId);
         
         console.log("API response status:", res.status);
+        console.log("Response content type:", res.headers.get("content-type"));
         
         if (!res.ok) {
           // Handle HTTP errors with specific messages
@@ -123,24 +130,35 @@
           throw new Error(errorText);
         }
         
-        const contentType = res.headers.get("content-type");
-        console.log("Response content type:", contentType);
+        // Check if response is JSON
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          console.error("Expected JSON but got:", contentType);
+          
+          // Try to get the response text for debugging
+          const responseText = await res.text();
+          console.error("Response text preview:", responseText.substring(0, 200));
+          
+          throw new Error(`Invalid content type: ${contentType}`);
+        }
         
         // Try to parse response as JSON
         let data;
-        const responseText = await res.text();
-        console.log("Response preview:", responseText.substring(0, 100) + "...");
-        
         try {
-          data = JSON.parse(responseText);
-        } catch (err) {
-          console.error("Failed to parse JSON:", err);
-          throw new Error("Invalid response format from server");
+          // Reset the response
+          const responseClone = res.clone();
+          data = await responseClone.json();
+        } catch (jsonError) {
+          console.error("JSON parse error:", jsonError);
+          const responseText = await res.text();
+          console.error("Raw response:", responseText.substring(0, 200));
+          throw new Error("Failed to parse response as JSON");
         }
         
         console.log("Received data, count:", Array.isArray(data) ? data.length : "not an array");
         
         if (!Array.isArray(data)) {
+          console.error("Expected array but got:", typeof data);
           throw new Error('Expected array but received ' + typeof data);
         }
         
@@ -160,13 +178,15 @@
         errorMessage.textContent = err.message || 'Failed to load user data';
         errorMessage.classList.remove("hidden");
         
-        if (err.name === 'AbortError') {
-          target.innerHTML = `<p class="warning">Request timed out. Please try again.</p>`;
-        } else {
-          target.innerHTML = `<p class="warning">Unable to load users. ${err.message}</p>`;
-        }
-        
         console.error('Error loading users:', err);
+        
+        if (err.name === 'AbortError') {
+          target.innerHTML = `<div class="error-box">Request timed out. Please try again.</div>`;
+        } else if (err.name === 'SyntaxError') {
+          target.innerHTML = `<div class="error-box">Invalid response format from server. The API returned non-JSON data.</div>`;
+        } else {
+          target.innerHTML = `<div class="error-box">Unable to load users. ${err.message}</div>`;
+        }
       }
     }
     
@@ -277,6 +297,11 @@
           document.getElementById("users").scrollIntoView({ behavior: "smooth" });
         }
       });
+      
+      // Setup retry button
+      document.getElementById("retryButton").addEventListener("click", () => {
+        loadUsers();
+      });
     }
     
     // Apply filters based on search input and role selection
@@ -300,23 +325,8 @@
       renderUsers();
     }
     
-    // Add automatic retry if initial load fails
-    let retryCount = 0;
-    const maxRetries = 2;
-    
-    function loadWithRetry() {
-      loadUsers().catch(error => {
-        console.error("Load failed:", error);
-        if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Retrying (${retryCount}/${maxRetries})...`);
-          setTimeout(loadWithRetry, 1000);
-        }
-      });
-    }
-    
-    // Initialize with retry capability
-    document.addEventListener('DOMContentLoaded', loadWithRetry);
+    // Initialize with automatic load
+    document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
   
   <style>
@@ -400,13 +410,84 @@
       display: none;
     }
     
-    .warning {
-      color: #ff9500;
-      background-color: rgba(255, 149, 0, 0.1);
+    .error-box {
+      color: #ff453a;
+      background-color: rgba(255, 69, 58, 0.1);
       padding: 1rem;
       border-radius: 4px;
       text-align: center;
       margin: 1rem 0;
+      border: 1px solid rgba(255, 69, 58, 0.3);
+    }
+    
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    
+    .fancy-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .fancy-table thead tr {
+      background-color: #00a080;
+      color: #ffffff;
+      text-align: left;
+      font-weight: bold;
+    }
+    
+    .fancy-table th,
+    .fancy-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #333;
+    }
+    
+    .fancy-table tbody tr {
+      border-bottom: 1px solid #333;
+      transition: background-color 0.3s;
+    }
+    
+    .fancy-table tbody tr:nth-of-type(even) {
+      background-color: #1a1a1a;
+    }
+    
+    .fancy-table tbody tr:last-of-type {
+      border-bottom: 2px solid #00a080;
+    }
+    
+    .fancy-table tbody tr:hover {
+      background-color: #222;
+      color: #00e6b8;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(0, 230, 184, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid #00e6b8;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .card {
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid #333;
     }
     
     @media (max-width: 600px) {
@@ -422,6 +503,45 @@
       .search-input,
       .role-select {
         width: 100%;
+      }
+      
+      .fancy-table {
+        display: block;
+        overflow-x: auto;
+      }
+      
+      .fancy-table thead {
+        display: none;
+      }
+      
+      .fancy-table, 
+      .fancy-table tbody, 
+      .fancy-table tr, 
+      .fancy-table td {
+        display: block;
+        width: 100%;
+      }
+      
+      .fancy-table tr {
+        margin-bottom: 15px;
+        border: 1px solid #333;
+        border-radius: 5px;
+      }
+      
+      .fancy-table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+      }
+      
+      .fancy-table td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 45%;
+        padding-left: 15px;
+        font-weight: bold;
+        text-align: left;
       }
     }
   </style>
