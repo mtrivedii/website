@@ -28,7 +28,9 @@
       <!-- Add logout button -->
       <a href="/logout" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
-    <div id="debug-info" style="margin-top: 20px; color: #666; font-size: 12px;"></div>
+    
+    <!-- Debug info section with clean styling -->
+    <div id="debug-info" class="debug-panel"></div>
   </div>
 
   <script>
@@ -36,7 +38,7 @@
     const loadingEl = document.getElementById('loading');
     const debugInfo = document.getElementById('debug-info');
     
-    // Helper function for debugging
+    // Helper function for debugging - with cleaner formatting
     function debugLog(message) {
       console.log(message);
       if (debugInfo) {
@@ -54,6 +56,7 @@
     // Check authentication status
     async function checkAuthStatus() {
       try {
+        debugLog('Page loaded, initiating auth checks');
         debugLog('Checking authentication status...');
         const authResponse = await fetch('/.auth/me');
         if (authResponse.ok) {
@@ -134,12 +137,35 @@
 
     // When page loads, check authentication status
     window.addEventListener('DOMContentLoaded', () => {
-      debugLog('Page loaded, initiating auth checks');
       checkAuthStatus();
     });
   </script>
 
   <style>
+    /* Base styles */
+    body {
+      background-color: #111;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      text-align: center;
+    }
+    
+    h1 {
+      color: #00e6b8;
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    
     /* Loading overlay styles */
     .loading-overlay {
       position: fixed;
@@ -168,22 +194,47 @@
       100% { transform: rotate(360deg); }
     }
     
+    /* Button styles */
     .button-container {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
+      margin: 30px 0;
     }
     
-    #debug-info {
-      max-height: 200px;
-      overflow-y: auto;
-      text-align: left;
+    .button {
+      background-color: #00e6b8;
+      color: black;
+      padding: 12px 24px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    
+    .button:hover {
+      background-color: #00ffcc;
+      box-shadow: 0 0 10px #00e6b8;
+    }
+    
+    /* Debug panel styling - similar to Image 2 */
+    .debug-panel {
+      max-width: 600px;
+      margin: 30px auto;
       padding: 10px;
       border: 1px solid #333;
-      border-radius: 4px;
-      background-color: #111;
-      margin-top: 20px;
+      color: #aaa;
+      font-size: 12px;
+      text-align: left;
+      background-color: rgba(0, 0, 0, 0.3);
+      max-height: 150px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+    
+    .debug-panel div {
+      margin-bottom: 3px;
     }
   </style>
 </body>

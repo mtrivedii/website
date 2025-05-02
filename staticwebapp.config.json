@@ -12,8 +12,11 @@
       "route": "/api/checkAdmin",
       "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/checkAdmin",
-      "methods": ["GET", "POST", "OPTIONS"]
-    
+      "methods": ["GET", "POST", "OPTIONS"],
+      "headers": {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
     },
     {
       "route": "/api/users",
@@ -43,6 +46,46 @@
         "X-Frame-Options": "SAMEORIGIN",
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
+    },
+    {
+      "route": "/admin.html",
+      "allowedRoles": ["admin"],
+      "serve": "/admin.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/",
+      "serve": "/index.html",
+      "statusCode": 200,
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
     }
-  ]
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/.auth/*",
+      "/api/*",
+      "*.css",
+      "*.js",
+      "*.png",
+      "*.jpg",
+      "*.svg"
+    ]
+  },
+  "globalHeaders": {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  }
 }
