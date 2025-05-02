@@ -37,7 +37,7 @@
     },
     {
       "route": "/users.html",
-      "allowedRoles": ["admin"],
+      "allowedRoles": ["authenticated", "admin"],
       "serve": "/users.html",
       "statusCode": 200,
       "headers": {
