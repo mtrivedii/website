@@ -111,11 +111,17 @@
       "/.auth/*",
       "/api/*",
       "/*.js",
+      "/*.js*",
       "/*.css",
+      "/*.css*",
       "/*.png",
+      "/*.png*",
       "/*.jpg",
+      "/*.jpg*",
       "/*.svg",
-      "/*.html"
+      "/*.svg*",
+      "/*.html",
+      "/*.html*"
     ]
   },
   "globalHeaders": {
