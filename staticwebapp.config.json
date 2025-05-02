@@ -10,26 +10,28 @@
     },
     {
       "route": "/api/scoreboard",
-      "allowedRoles": ["anonymous","authenticated"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/scoreboard",
-      "methods": ["GET","OPTIONS"],
-      "headers": { "Content-Type": "application/json" }
+      "methods": ["GET", "OPTIONS"],
+      "headers": {
+        "Content-Type": "application/json"
+      }
     },
     {
       "route": "/api/users",
-      "allowedRoles": ["anonymous","authenticated"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/users",
-      "methods": ["GET","POST","OPTIONS"]
+      "methods": ["GET", "POST", "OPTIONS"]
     },
     {
       "route": "/api/upload",
-      "allowedRoles": ["anonymous","authenticated"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/upload",
-      "methods": ["POST","OPTIONS"]
+      "methods": ["POST", "OPTIONS"]
     },
     {
       "route": "/api/*",
-      "allowedRoles": ["anonymous","authenticated"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/{rest}"
     },
     {
@@ -99,18 +101,12 @@
     "exclude": [
       "/.auth/*",
       "/api/*",
-      "/*.js",
-      "/*.js*",
-      "/*.css",
-      "/*.css*",
-      "/*.png",
-      "/*.png*",
-      "/*.jpg",
-      "/*.jpg*",
-      "/*.svg",
-      "/*.svg*",
-      "/*.html",
-      "/*.html*"
+      "*.css",
+      "*.js",
+      "*.png",
+      "*.jpg",
+      "*.svg",
+      "/*.html"
     ]
   },
   "globalHeaders": {
