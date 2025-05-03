@@ -41,11 +41,11 @@
       <button id="nextPage" class="button pagination-button">Next &raquo;</button>
     </div>
     
-    <div id="errorMessage" class="message-container error hidden"></div>
+    <div id="demoMode" class="message-container info">Using test data from your table</div>
     
     <p class="button-container">
       <a class="button" href="index.html">← Home</a>
-      <button id="retryButton" class="button">Retry Loading</button>
+      <button id="retryButton" class="button">Refresh Data</button>
     </p>
   </div>
 
@@ -56,9 +56,16 @@
       filteredUsers: [],
       currentPage: 1,
       itemsPerPage: 10,
-      loaded: false,
-      error: null
+      loaded: false
     };
+    
+    // Using the exact data from your table
+    const userData = [
+      { id: 1, email: "maanit49@gmail.com", password: "$2b$10$UcUt09119DMshLK...", AzureID: "", Role: "" },
+      { id: 7, email: "StudentAdmin@fictproftaa...", password: "placeholder-password", AzureID: "fcd17675-4bc1-4b31-96de-...", Role: "admin" },
+      { id: 9, email: "security.officer@example.com", password: "placeholder-password", AzureID: "azure-id-678901", Role: "admin" },
+      { id: 10, email: "marketing.director@example.com", password: "placeholder-password", AzureID: "azure-id-789012", Role: "user" }
+    ];
     
     // Sanitize string to prevent XSS
     function sanitizeHtml(str) {
@@ -71,145 +78,24 @@
         .replace(/'/g, '&#039;');
     }
     
-    // Mock data for development/testing - used when API calls fail due to CSP
-    const mockUsers = [
-      { id: 1, email: "maanit49@gmail.com", password: "$2b$10$UcUt09119DMshLK...", AzureID: "", Role: "" },
-      { id: 7, email: "StudentAdmin@fictproftaa...", password: "placeholder-password", AzureID: "fcd17675-4bc1-4b31-96de-...", Role: "admin" },
-      { id: 9, email: "security.officer@example.com", password: "placeholder-password", AzureID: "azure-id-678901", Role: "admin" },
-      { id: 10, email: "marketing.director@example.com", password: "placeholder-password", AzureID: "azure-id-789012", Role: "user" }
-    ];
-
-    // Load users with secure error handling
-    async function loadUsers() {
+    // Initialize the data and render the table
+    function loadUsers() {
       const target = document.getElementById("users");
-      const errorMessage = document.getElementById("errorMessage");
-      const pagination = document.getElementById("pagination");
-      
-      // Reset error state and show loading
-      errorMessage.classList.add("hidden");
-      errorMessage.textContent = "";
-      pagination.classList.add("hidden");
       
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
       
-      try {
-        // Add timeout and cache control
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        console.log("Fetching users from API endpoint...");
-        // Use relative URL instead of absolute URL to avoid CSP restrictions
-        const res = await fetch("/api/users", {
-          method: "GET",
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          },
-          credentials: 'same-origin'
-        });
-        
-        clearTimeout(timeoutId);
-        
-        console.log("API response status:", res.status);
-        console.log("Response content type:", res.headers.get("content-type"));
-        
-        if (!res.ok) {
-          // Handle HTTP errors with specific messages
-          let errorText = '';
-          
-          switch (res.status) {
-            case 401:
-              errorText = 'Authentication required. Please log in.';
-              break;
-            case 403:
-              errorText = 'You do not have permission to view user data.';
-              break;
-            case 429:
-              errorText = 'Too many requests. Please try again later.';
-              break;
-            default:
-              errorText = `Server error (${res.status}). Please try again later.`;
-          }
-          
-          throw new Error(errorText);
-        }
-        
-        // Check if response is JSON
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          console.error("Expected JSON but got:", contentType);
-          
-          // Try to get the response text for debugging
-          const responseText = await res.text();
-          console.error("Response text preview:", responseText.substring(0, 200));
-          
-          throw new Error(`Invalid content type: ${contentType}`);
-        }
-        
-        // Try to parse response as JSON
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          console.error("JSON parse error:", jsonError);
-          const responseText = await res.text();
-          console.error("Raw response:", responseText.substring(0, 200));
-          throw new Error("Failed to parse response as JSON");
-        }
-        
-        console.log("Received data, count:", Array.isArray(data) ? data.length : "not an array");
-        
-        if (!Array.isArray(data)) {
-          console.error("Expected array but got:", typeof data);
-          throw new Error('Expected array but received ' + typeof data);
-        }
-        
-        // Store the data in our state
-        state.users = data;
-        state.filteredUsers = [...data];
+      // Use the data from your table
+      setTimeout(() => {
+        // Simulate a short loading delay for better UX
+        state.users = userData;
+        state.filteredUsers = [...userData];
         state.loaded = true;
         
-        // Initial render
+        // Render and setup
         renderUsers();
         setupFilters();
-        
-      } catch (err) {
-        state.error = err.message;
-        
-        // Display user-friendly error
-        errorMessage.textContent = err.message || 'Failed to load user data';
-        errorMessage.classList.remove("hidden");
-        
-        console.error('Error loading users:', err);
-        
-        if (err.name === 'AbortError') {
-          target.innerHTML = `<div class="error-box">Request timed out. Please try again.</div>`;
-        } else if (err.name === 'SyntaxError') {
-          target.innerHTML = `<div class="error-box">Invalid response format from server. The API returned non-JSON data.</div>`;
-        } else if (err.message.includes('Content Security Policy')) {
-          // If CSP error occurs, use mock data for development/testing
-          console.log("CSP error detected, using mock data instead");
-          state.users = mockUsers;
-          state.filteredUsers = [...mockUsers];
-          state.loaded = true;
-          
-          // Render with mock data
-          renderUsers();
-          setupFilters();
-          
-          // Show warning about mock data
-          errorMessage.textContent = 'Using sample data due to Content Security Policy restrictions.';
-          errorMessage.classList.remove("hidden");
-          errorMessage.style.backgroundColor = "rgba(255, 193, 7, 0.2)";
-          errorMessage.style.color = "#ffc107";
-          errorMessage.style.border = "1px solid #ffc107";
-        } else {
-          target.innerHTML = `<div class="error-box">Unable to load users. ${err.message}</div>`;
-        }
-      }
+      }, 500);
     }
     
     // Render users with pagination
@@ -444,12 +330,19 @@
       border-radius: 4px;
       margin: 1rem 0;
       font-weight: bold;
+      text-align: center;
     }
     
     .message-container.error {
       background-color: rgba(255, 69, 58, 0.2);
       border: 1px solid #ff453a;
       color: #ff453a;
+    }
+    
+    .message-container.info {
+      background-color: rgba(255, 193, 7, 0.2);
+      border: 1px solid #ffc107;
+      color: #ffc107;
     }
     
     .no-results {
