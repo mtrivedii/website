@@ -46,6 +46,22 @@
     <div class="button-container">
       <a class="button" href="index.html">← Home</a>
       <button id="retryButton" class="button">Refresh Data</button>
+      <button id="addUserButton" class="button primary">+ Add User</button>
+    </div>
+
+    <!-- Modal for password reset / user actions -->
+    <div id="actionModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2 id="modalTitle">Reset Password</h2>
+        <div id="modalBody">
+          <!-- Content will be dynamically inserted -->
+        </div>
+        <div class="modal-footer">
+          <button id="modalCancelButton" class="button secondary">Cancel</button>
+          <button id="modalConfirmButton" class="button danger">Confirm</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -56,15 +72,51 @@
       filteredUsers: [],
       currentPage: 1,
       itemsPerPage: 10,
-      loaded: false
+      loaded: false,
+      modal: {
+        currentUserId: null,
+        action: null
+      }
     };
     
-    // Using the exact data from your table
+    // Using the exact data from your table but adding non-sensitive attributes
     const userData = [
-      { id: 1, email: "maanit49@gmail.com", password: "$2b$10$UcUt09119DMshLK...", AzureID: "", Role: "" },
-      { id: 7, email: "StudentAdmin@fictproftaa...", password: "placeholder-password", AzureID: "fcd17675-4bc1-4b31-96de-...", Role: "admin" },
-      { id: 9, email: "security.officer@example.com", password: "placeholder-password", AzureID: "azure-id-678901", Role: "admin" },
-      { id: 10, email: "marketing.director@example.com", password: "placeholder-password", AzureID: "azure-id-789012", Role: "user" }
+      { 
+        id: 1, 
+        email: "maanit49@gmail.com", 
+        status: "Active",
+        twoFactorEnabled: false,
+        lastLogin: null,
+        passwordLastChanged: "2023-11-15T10:30:00Z",
+        Role: ""
+      },
+      { 
+        id: 7, 
+        email: "StudentAdmin@fictproftaa...", 
+        status: "Active",
+        twoFactorEnabled: true,
+        lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(), // 3 days ago
+        passwordLastChanged: "2024-03-12T14:20:00Z",
+        Role: "admin"
+      },
+      { 
+        id: 9, 
+        email: "security.officer@example.com", 
+        status: "Active",
+        twoFactorEnabled: true,
+        lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(), // 1 day ago
+        passwordLastChanged: "2024-01-20T09:15:00Z",
+        Role: "admin"
+      },
+      { 
+        id: 10, 
+        email: "marketing.director@example.com", 
+        status: "Active",
+        twoFactorEnabled: false,
+        lastLogin: new Date(Date.now() - 5*24*60*60*1000).toISOString(), // 5 days ago
+        passwordLastChanged: "2024-02-10T16:45:00Z",
+        Role: "user"
+      }
     ];
     
     // Sanitize string to prevent XSS
@@ -76,6 +128,43 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+    
+    // Format date in a friendly way
+    function formatDate(dateString) {
+      if (!dateString) return 'Never';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now - date);
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return 'Today';
+      } else if (diffDays === 1) {
+        return 'Yesterday';
+      } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
+    }
+    
+    // Format password age in a friendly way
+    function getPasswordAge(dateString) {
+      if (!dateString) return 'Unknown';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now - date);
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 30) {
+        return `${diffDays} days`;
+      } else {
+        const months = Math.floor(diffDays / 30);
+        return `${months} month${months !== 1 ? 's' : ''}`;
+      }
     }
     
     // Initialize the data and render the table
@@ -95,6 +184,7 @@
         // Render and setup
         renderUsers();
         setupFilters();
+        setupModal();
       }, 500);
     }
     
@@ -130,15 +220,18 @@
       const table = document.createElement("table");
       table.className = "fancy-table";
       
-      // Table header
+      // Table header - SECURITY ENHANCED VERSION
       const thead = document.createElement("thead");
       thead.innerHTML = `
         <tr>
           <th>ID</th>
           <th>Email</th>
-          <th>Password</th>
-          <th>AzureID</th>
+          <th>Status</th>
+          <th>2FA</th>
+          <th>Last Login</th>
+          <th>Password Age</th>
           <th>Role</th>
+          <th>Actions</th>
         </tr>
       `;
       table.appendChild(thead);
@@ -150,7 +243,7 @@
         // No results after filtering
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td colspan="5" class="no-results">No users match your search criteria</td>
+          <td colspan="8" class="no-results">No users match your search criteria</td>
         `;
         tbody.appendChild(tr);
       } else {
@@ -161,16 +254,31 @@
           // Sanitize all data to prevent XSS
           const id = sanitizeHtml(user.id);
           const email = sanitizeHtml(user.email);
-          const password = sanitizeHtml(user.password);
-          const azureID = sanitizeHtml(user.AzureID);
+          const status = sanitizeHtml(user.status || 'Unknown');
+          const twoFA = user.twoFactorEnabled ? 
+            '<span class="badge success">Enabled</span>' : 
+            '<span class="badge warning">Disabled</span>';
+          const lastLogin = formatDate(user.lastLogin);
+          const passwordAge = getPasswordAge(user.passwordLastChanged);
           const role = sanitizeHtml(user.Role || '–');
           
           tr.innerHTML = `
             <td data-label="ID">${id}</td>
             <td data-label="Email">${email}</td>
-            <td data-label="Password">${password}</td>
-            <td data-label="AzureID">${azureID}</td>
+            <td data-label="Status">
+              <span class="badge ${status === 'Active' ? 'success' : 'danger'}">${status}</span>
+            </td>
+            <td data-label="2FA">${twoFA}</td>
+            <td data-label="Last Login">${lastLogin}</td>
+            <td data-label="Password Age">${passwordAge}</td>
             <td data-label="Role">${role}</td>
+            <td data-label="Actions">
+              <button class="icon-button reset-password" data-id="${id}" title="Reset Password">🔐</button>
+              <button class="icon-button edit-user" data-id="${id}" title="Edit User">✏️</button>
+              <button class="icon-button toggle-2fa" data-id="${id}" title="${user.twoFactorEnabled ? 'Disable' : 'Enable'} 2FA">
+                ${user.twoFactorEnabled ? '🔒' : '🔓'}
+              </button>
+            </td>
           `;
           tbody.appendChild(tr);
         });
@@ -181,6 +289,19 @@
       // Update DOM
       target.innerHTML = "";
       target.appendChild(table);
+      
+      // Add event listeners to action buttons
+      document.querySelectorAll('.reset-password').forEach(button => {
+        button.addEventListener('click', () => showResetPasswordModal(button.dataset.id));
+      });
+      
+      document.querySelectorAll('.edit-user').forEach(button => {
+        button.addEventListener('click', () => showEditUserModal(button.dataset.id));
+      });
+      
+      document.querySelectorAll('.toggle-2fa').forEach(button => {
+        button.addEventListener('click', () => showToggle2FAModal(button.dataset.id));
+      });
     }
     
     // Set up filtering and search functionality
@@ -216,6 +337,11 @@
       document.getElementById("retryButton").addEventListener("click", () => {
         loadUsers();
       });
+      
+      // Setup add user button
+      document.getElementById("addUserButton").addEventListener("click", () => {
+        showAddUserModal();
+      });
     }
     
     // Apply filters based on search input and role selection
@@ -239,6 +365,240 @@
       renderUsers();
     }
     
+    // Modal functionality
+    function setupModal() {
+      const modal = document.getElementById('actionModal');
+      const closeButton = document.querySelector('.close-button');
+      const cancelButton = document.getElementById('modalCancelButton');
+      
+      // Close modal when close button is clicked
+      closeButton.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+      
+      // Close modal when cancel button is clicked
+      cancelButton.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+      
+      // Close modal when clicking outside modal content
+      window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          modal.classList.add('hidden');
+        }
+      });
+      
+      // Setup confirm button
+      document.getElementById('modalConfirmButton').addEventListener('click', () => {
+        handleModalConfirm();
+      });
+    }
+    
+    // Show the reset password modal
+    function showResetPasswordModal(userId) {
+      const user = state.users.find(u => u.id == userId);
+      if (!user) return;
+      
+      state.modal.currentUserId = userId;
+      state.modal.action = 'resetPassword';
+      
+      // Update modal content
+      document.getElementById('modalTitle').textContent = 'Reset Password';
+      document.getElementById('modalBody').innerHTML = `
+        <p>You are about to reset the password for <strong>${sanitizeHtml(user.email)}</strong>.</p>
+        <p>This will invalidate the current password and generate a temporary one.</p>
+        <div class="form-group">
+          <label for="sendEmail">
+            <input type="checkbox" id="sendEmail" checked>
+            Send password reset email to user
+          </label>
+        </div>
+      `;
+      
+      // Update confirm button
+      const confirmButton = document.getElementById('modalConfirmButton');
+      confirmButton.textContent = 'Reset Password';
+      confirmButton.className = 'button danger';
+      
+      // Show the modal
+      document.getElementById('actionModal').classList.remove('hidden');
+    }
+    
+    // Show the edit user modal
+    function showEditUserModal(userId) {
+      const user = state.users.find(u => u.id == userId);
+      if (!user) return;
+      
+      state.modal.currentUserId = userId;
+      state.modal.action = 'editUser';
+      
+      // Update modal content
+      document.getElementById('modalTitle').textContent = 'Edit User';
+      document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+          <label for="userEmail">Email</label>
+          <input type="email" id="userEmail" value="${sanitizeHtml(user.email)}" class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="userStatus">Status</label>
+          <select id="userStatus" class="form-select">
+            <option value="Active" ${user.status === 'Active' ? 'selected' : ''}>Active</option>
+            <option value="Inactive" ${user.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+            <option value="Locked" ${user.status === 'Locked' ? 'selected' : ''}>Locked</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="userRole">Role</label>
+          <select id="userRole" class="form-select">
+            <option value="" ${!user.Role ? 'selected' : ''}>None</option>
+            <option value="admin" ${user.Role === 'admin' ? 'selected' : ''}>Admin</option>
+            <option value="user" ${user.Role === 'user' ? 'selected' : ''}>User</option>
+          </select>
+        </div>
+      `;
+      
+      // Update confirm button
+      const confirmButton = document.getElementById('modalConfirmButton');
+      confirmButton.textContent = 'Save Changes';
+      confirmButton.className = 'button primary';
+      
+      // Show the modal
+      document.getElementById('actionModal').classList.remove('hidden');
+    }
+    
+    // Show the toggle 2FA modal
+    function showToggle2FAModal(userId) {
+      const user = state.users.find(u => u.id == userId);
+      if (!user) return;
+      
+      state.modal.currentUserId = userId;
+      state.modal.action = 'toggle2FA';
+      
+      const action = user.twoFactorEnabled ? 'disable' : 'enable';
+      
+      // Update modal content
+      document.getElementById('modalTitle').textContent = `${action === 'enable' ? 'Enable' : 'Disable'} Two-Factor Authentication`;
+      document.getElementById('modalBody').innerHTML = `
+        <p>You are about to <strong>${action}</strong> two-factor authentication for <strong>${sanitizeHtml(user.email)}</strong>.</p>
+        ${action === 'disable' ? 
+          '<p class="warning">WARNING: This will reduce account security. Only disable 2FA if absolutely necessary.</p>' :
+          '<p>This will require the user to set up an authenticator app on next login.</p>'
+        }
+      `;
+      
+      // Update confirm button
+      const confirmButton = document.getElementById('modalConfirmButton');
+      confirmButton.textContent = `${action === 'enable' ? 'Enable' : 'Disable'} 2FA`;
+      confirmButton.className = `button ${action === 'enable' ? 'primary' : 'danger'}`;
+      
+      // Show the modal
+      document.getElementById('actionModal').classList.remove('hidden');
+    }
+    
+    // Show the add user modal
+    function showAddUserModal() {
+      state.modal.currentUserId = null;
+      state.modal.action = 'addUser';
+      
+      // Update modal content
+      document.getElementById('modalTitle').textContent = 'Add New User';
+      document.getElementById('modalBody').innerHTML = `
+        <div class="form-group">
+          <label for="newUserEmail">Email *</label>
+          <input type="email" id="newUserEmail" placeholder="user@example.com" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label for="newUserRole">Role</label>
+          <select id="newUserRole" class="form-select">
+            <option value="">None</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="enable2FA">
+            <input type="checkbox" id="enable2FA">
+            Require Two-Factor Authentication
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="sendWelcomeEmail">
+            <input type="checkbox" id="sendWelcomeEmail" checked>
+            Send welcome email with setup instructions
+          </label>
+        </div>
+      `;
+      
+      // Update confirm button
+      const confirmButton = document.getElementById('modalConfirmButton');
+      confirmButton.textContent = 'Create User';
+      confirmButton.className = 'button primary';
+      
+      // Show the modal
+      document.getElementById('actionModal').classList.remove('hidden');
+    }
+    
+    // Handle modal confirm button click
+    function handleModalConfirm() {
+      const modal = document.getElementById('actionModal');
+      const userId = state.modal.currentUserId;
+      const action = state.modal.action;
+      
+      // In a real application, this would make an API call
+      // For this demo, we'll just update the local state
+      
+      if (action === 'resetPassword') {
+        const sendEmail = document.getElementById('sendEmail').checked;
+        // This would normally trigger an API call to reset the password
+        alert(`Password reset for user ID ${userId}${sendEmail ? ' and email sent' : ''}`);
+      }
+      else if (action === 'editUser') {
+        const user = state.users.find(u => u.id == userId);
+        if (user) {
+          user.email = document.getElementById('userEmail').value;
+          user.status = document.getElementById('userStatus').value;
+          user.Role = document.getElementById('userRole').value;
+          renderUsers(); // Update the table
+        }
+      }
+      else if (action === 'toggle2FA') {
+        const user = state.users.find(u => u.id == userId);
+        if (user) {
+          user.twoFactorEnabled = !user.twoFactorEnabled;
+          renderUsers(); // Update the table
+        }
+      }
+      else if (action === 'addUser') {
+        const email = document.getElementById('newUserEmail').value;
+        const role = document.getElementById('newUserRole').value;
+        const enable2FA = document.getElementById('enable2FA').checked;
+        
+        // Validation
+        if (!email) {
+          alert('Email is required');
+          return;
+        }
+        
+        // Add new user to the list
+        const newUser = {
+          id: Math.max(...state.users.map(u => u.id)) + 1,
+          email: email,
+          status: 'Active',
+          twoFactorEnabled: enable2FA,
+          lastLogin: null,
+          passwordLastChanged: new Date().toISOString(),
+          Role: role
+        };
+        
+        state.users.push(newUser);
+        state.filteredUsers = [...state.users];
+        renderUsers(); // Update the table
+      }
+      
+      // Close the modal
+      modal.classList.add('hidden');
+    }
+    
     // Initialize with automatic load
     document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
@@ -259,7 +619,7 @@
     
     .container {
       width: 100%;
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 2rem;
       box-sizing: border-box;
@@ -384,9 +744,52 @@
     /* Column highlight */
     .fancy-table th:nth-child(1), .fancy-table td:nth-child(1) { color: #00e6b8; } /* ID */
     .fancy-table th:nth-child(2), .fancy-table td:nth-child(2) { color: #00e6b8; } /* Email */
-    .fancy-table th:nth-child(3), .fancy-table td:nth-child(3) { color: #00e6b8; } /* Password */
-    .fancy-table th:nth-child(4), .fancy-table td:nth-child(4) { color: #00e6b8; } /* AzureID */
-    .fancy-table th:nth-child(5), .fancy-table td:nth-child(5) { color: #00e6b8; } /* Role */
+    .fancy-table th:nth-child(7), .fancy-table td:nth-child(7) { color: #00e6b8; } /* Role */
+    
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-align: center;
+    }
+    
+    .badge.success {
+      background-color: rgba(0, 230, 184, 0.2);
+      color: #00e6b8;
+      border: 1px solid #00e6b8;
+    }
+    
+    .badge.warning {
+      background-color: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+      border: 1px solid #ffc107;
+    }
+    
+    .badge.danger {
+      background-color: rgba(255, 69, 58, 0.2);
+      color: #ff453a;
+      border: 1px solid #ff453a;
+    }
+    
+    /* Icon buttons */
+    .icon-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 4px;
+      margin: 0 2px;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+    
+    .icon-button:hover {
+      background-color: #222;
+      transform: scale(1.2);
+    }
     
     /* Pagination controls */
     .pagination {
@@ -474,6 +877,36 @@
       box-shadow: 0 0 12px #00ffc8, 0 0 20px #00ffc8;
     }
     
+    .button.primary {
+      background-color: #4a6bff;
+      box-shadow: 0 0 8px rgba(74, 107, 255, 0.5);
+    }
+    
+    .button.primary:hover {
+      background-color: #5a7bff;
+      box-shadow: 0 0 12px #5a7bff, 0 0 20px #5a7bff;
+    }
+    
+    .button.secondary {
+      background-color: #555;
+      box-shadow: 0 0 8px rgba(85, 85, 85, 0.5);
+    }
+    
+    .button.secondary:hover {
+      background-color: #666;
+      box-shadow: 0 0 12px #666, 0 0 20px #666;
+    }
+    
+    .button.danger {
+      background-color: #ff453a;
+      box-shadow: 0 0 8px rgba(255, 69, 58, 0.5);
+    }
+    
+    .button.danger:hover {
+      background-color: #ff554a;
+      box-shadow: 0 0 12px #ff554a, 0 0 20px #ff554a;
+    }
+    
     .spinner {
       border: 4px solid rgba(0, 230, 184, 0.3);
       border-radius: 50%;
@@ -487,6 +920,98 @@
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+    
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      padding: 2rem;
+      position: relative;
+      box-shadow: 0 0 20px rgba(0, 230, 184, 0.3);
+      border: 1px solid #333;
+    }
+    
+    .close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #aaa;
+      transition: color 0.3s ease;
+    }
+    
+    .close-button:hover {
+      color: #ff453a;
+    }
+    
+    .modal h2 {
+      color: #00e6b8;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.5rem;
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #333;
+    }
+    
+    /* Form elements for modals */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    
+    .form-input, .form-select {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background-color: #222;
+      color: #fff;
+      font-size: 1rem;
+    }
+    
+    .form-input:focus, .form-select:focus {
+      border-color: #00e6b8;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
+    }
+    
+    .warning {
+      color: #ffc107;
+      background-color: rgba(255, 193, 7, 0.1);
+      padding: 0.75rem;
+      border-radius: 4px;
+      border-left: 4px solid #ffc107;
+      margin: 1rem 0;
     }
     
     /* Responsive layout */
@@ -505,6 +1030,15 @@
       }
       
       .role-select {
+        width: 100%;
+      }
+      
+      .button-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .button {
         width: 100%;
       }
       
@@ -548,7 +1082,9 @@
         font-weight: bold;
         text-align: left;
       }
+      
+      .modal-content {
+        width: 95%;
+        padding: 1rem;
+      }
     }
-  </style>
-</body>
-</html>
