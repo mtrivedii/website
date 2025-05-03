@@ -74,7 +74,7 @@
     },
     {
       "route": "/admin.html",
-      "allowedRoles": ["admin"],
+      "allowedRoles": ["authenticated"],
       "serve": "/admin.html",
       "statusCode": 200,
       "headers": {
