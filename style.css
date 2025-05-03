@@ -204,3 +204,70 @@ hr {
     text-align: left;
   }
 }
+
+/* Upload-specific styles - add to existing style.css */
+.file-input-container {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.file-name {
+  display: block;
+  margin-top: 0.5rem;
+  font-style: italic;
+  color: #aaa;
+}
+
+.file-detail {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #333;
+}
+
+.file-detail:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.progress-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 1rem auto;
+  background-color: #222;
+  border-radius: 8px;
+  padding: 3px;
+  position: relative;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #00e6b8;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+  box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
+}
+
+.progress-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  line-height: 30px;
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.file-details {
+  max-width: 400px;
+  margin: 1rem auto;
+}

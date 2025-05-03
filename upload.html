@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <title>Secure Document Upload</title>
   <link rel="stylesheet" href="style.css">
-  <!-- CSP headers should be implemented server-side instead of in meta tags -->
+  <!-- Cache control -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 </head>
 <body>
   <div class="container">
@@ -24,13 +27,13 @@
       <!-- Anti-CSRF token from server -->
       <input type="hidden" id="csrfToken" name="csrfToken" value="" />
       
-      <div class="file-input-wrapper">
+      <div class="file-input-container">
         <label for="file" class="button">Select File</label>
-        <input type="file" name="file" id="file" required />
-        <span id="filename-display">No file selected</span>
+        <input type="file" name="file" id="file" required style="display: none;" />
+        <span id="filename-display" class="file-name">No file selected</span>
       </div>
       
-      <div class="file-details" id="fileDetails" style="display: none;">
+      <div class="card file-details" id="fileDetails" style="display: none;">
         <div class="file-detail">
           <span>Size:</span>
           <span id="fileSize">-</span>
@@ -41,7 +44,7 @@
         </div>
       </div>
       
-      <button class="button submit-button" type="submit" id="uploadButton" disabled>Upload</button>
+      <button class="button" type="submit" id="uploadButton" disabled>Upload</button>
     </form>
     
     <div id="uploadProgress" class="progress-container" style="display: none;">
@@ -49,11 +52,11 @@
       <div class="progress-text" id="progressText">0%</div>
     </div>
     
-    <p id="uploadMessage" class="message"></p>
+    <p id="uploadMessage" class="warning"></p>
     <p><a class="button" href="index.html">← Back</a></p>
   </div>
 
-  <!-- External JavaScript file instead of inline script -->
+  <!-- External JavaScript file -->
   <script src="js/upload.js"></script>
 </body>
 </html>
