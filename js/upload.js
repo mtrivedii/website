@@ -1,35 +1,22 @@
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Upload.js loaded successfully');
+    
     // Get form elements
     const uploadForm = document.getElementById('uploadForm');
     const fileInput = document.querySelector('input[type="file"]');
     const uploadButton = document.getElementById('uploadButton');
-    const csrfToken = document.getElementById('csrfToken');
     
-    console.log('Upload.js loaded successfully');
-    
-    // Enable file selection
+    // File input change handler
     if (fileInput) {
       fileInput.addEventListener('change', function() {
+        console.log('File selected:', fileInput.files[0]?.name || 'No file');
         if (fileInput.files.length > 0) {
-          // Show file details
-          const file = fileInput.files[0];
-          if (document.getElementById('fileDetails')) {
-            document.getElementById('fileDetails').style.display = 'block';
-          }
-          
-          // Enable upload button
-          if (uploadButton) {
-            uploadButton.disabled = false;
-          }
-          
-          console.log('File selected:', file.name);
+          uploadButton.disabled = false;
         }
       });
-    } else {
-      console.error('File input element not found');
     }
     
-    // Handle form submission
+    // Form submission
     if (uploadForm) {
       uploadForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -41,56 +28,73 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const file = fileInput.files[0];
+        console.log('File selected: Project Plan (3).pdf');
         
         // Create FormData object
         const formData = new FormData();
         formData.append('file', file);
         
         // Add CSRF token if available
+        const csrfToken = document.getElementById('csrfToken');
         if (csrfToken && csrfToken.value) {
           formData.append('csrfToken', csrfToken.value);
         }
         
+        console.log('Uploading file to /api/upload');
+        
         try {
-          console.log('Uploading file to /api/upload');
           const response = await fetch('/api/upload', {
             method: 'POST',
             body: formData
           });
           
+          console.log('Response status:', response.status);
+          
           if (response.ok) {
-            const result = await response.json();
-            console.log('Upload successful:', result);
+            let result;
+            const contentType = response.headers.get('content-type');
             
-            // Show success message
-            if (document.getElementById('uploadMessage')) {
-              document.getElementById('uploadMessage').textContent = 'File uploaded successfully!';
+            if (contentType && contentType.includes('application/json')) {
+              try {
+                result = await response.json();
+              } catch (parseError) {
+                console.error('Error parsing JSON response:', parseError);
+                result = { message: 'File uploaded but response could not be parsed' };
+              }
+            } else {
+              // Handle non-JSON responses
+              const text = await response.text();
+              result = { message: 'File uploaded successfully', responseText: text };
             }
+            
+            console.log('Upload successful:', result);
+            alert('File uploaded successfully!');
             
             // Reset form
             uploadForm.reset();
             if (uploadButton) {
               uploadButton.disabled = true;
             }
-            if (document.getElementById('fileDetails')) {
-              document.getElementById('fileDetails').style.display = 'none';
-            }
           } else {
-            const error = await response.json();
-            console.error('Upload failed:', error);
+            console.error('Upload failed with status:', response.status);
             
-            // Show error message
-            if (document.getElementById('uploadMessage')) {
-              document.getElementById('uploadMessage').textContent = 'Upload failed: ' + (error.error || 'Unknown error');
+            let errorMessage = `Error ${response.status}: `;
+            
+            try {
+              const errorData = await response.json();
+              errorMessage += errorData.error || 'Unknown error';
+              console.error('Error details:', errorData);
+            } catch (e) {
+              // If response is not JSON
+              const text = await response.text();
+              errorMessage += text || 'Unknown error';
             }
+            
+            alert('Upload failed: ' + errorMessage);
           }
         } catch (error) {
           console.error('Upload error:', error);
-          
-          // Show error message
-          if (document.getElementById('uploadMessage')) {
-            document.getElementById('uploadMessage').textContent = 'Upload error: ' + error.message;
-          }
+          alert('Upload error: ' + error.message);
         }
       });
     } else {
