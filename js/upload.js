@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('Uploading file to /api/upload');
       
       try {
-        const response = await fetch('https://maanit-func.azurewebsites.net/api/upload', {
+        const response = await fetch('/api/upload', {
           method: 'POST',
           body: formData
         });
