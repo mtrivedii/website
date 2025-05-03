@@ -4,19 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
-  <link rel="stylesheet" href="style.css?v=1.0.1">
-  <!-- Add cache control headers -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Add cache control and security headers -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <!-- Updated CSP to allow inline scripts -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
 </head>
 <body>
   <div class="container">
     <h1>👥 User Directory</h1>
     
-    <div class="card">
+    <div class="filter-container">
       <div class="search-filters">
         <div class="filter-group">
           <label for="searchInput">Search:</label>
@@ -45,10 +43,7 @@
     
     <div id="errorMessage" class="message-container error hidden"></div>
     
-    <div class="button-container">
-      <a class="button" href="index.html">← Home</a>
-      <button id="retryButton" class="button">Retry Loading</button>
-    </div>
+    <p><a class="button" href="index.html">← Home</a></p>
   </div>
 
   <script>
@@ -93,7 +88,7 @@
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         
         console.log("Fetching users from API endpoint...");
-        const res = await fetch("/api/users", {
+        const res = await fetch("https://maanit-func.azurewebsites.net/api/users", {
           method: "GET",
           signal: controller.signal,
           headers: {
@@ -145,9 +140,7 @@
         // Try to parse response as JSON
         let data;
         try {
-          // Reset the response
-          const responseClone = res.clone();
-          data = await responseClone.json();
+          data = await res.json();
         } catch (jsonError) {
           console.error("JSON parse error:", jsonError);
           const responseText = await res.text();
@@ -228,6 +221,8 @@
         <tr>
           <th>ID</th>
           <th>Email</th>
+          <th>Password</th>
+          <th>AzureID</th>
           <th>Role</th>
         </tr>
       `;
@@ -240,7 +235,7 @@
         // No results after filtering
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td colspan="3" class="no-results">No users match your search criteria</td>
+          <td colspan="5" class="no-results">No users match your search criteria</td>
         `;
         tbody.appendChild(tr);
       } else {
@@ -251,11 +246,15 @@
           // Sanitize all data to prevent XSS
           const id = sanitizeHtml(user.id);
           const email = sanitizeHtml(user.email);
+          const password = sanitizeHtml(user.password);
+          const azureID = sanitizeHtml(user.AzureID);
           const role = sanitizeHtml(user.Role || '–');
           
           tr.innerHTML = `
             <td data-label="ID">${id}</td>
             <td data-label="Email">${email}</td>
+            <td data-label="Password">${password}</td>
+            <td data-label="AzureID">${azureID}</td>
             <td data-label="Role">${role}</td>
           `;
           tbody.appendChild(tr);
@@ -297,11 +296,6 @@
           document.getElementById("users").scrollIntoView({ behavior: "smooth" });
         }
       });
-      
-      // Setup retry button
-      document.getElementById("retryButton").addEventListener("click", () => {
-        loadUsers();
-      });
     }
     
     // Apply filters based on search input and role selection
@@ -330,36 +324,48 @@
   </script>
   
   <style>
-    /* Additional styles for user directory */
+    /* Additional styles for expanded user directory table */
+    /* Ensure table handles the new wider structure with more columns */
+    .filter-container {
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid #333;
+    }
+    
     .search-filters {
       display: flex;
+      justify-content: space-between;
       flex-wrap: wrap;
       gap: 1rem;
-      margin-bottom: 1rem;
     }
     
     .filter-group {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
+      min-width: 200px;
+      flex: 1;
     }
     
     .search-input,
     .role-select {
-      padding: 8px;
+      padding: 10px;
       border-radius: 4px;
       border: 1px solid #444;
       background-color: #222;
       color: #fff;
-      margin-top: 0.3rem;
-      min-width: 200px;
+      margin-top: 0.5rem;
+      width: 100%;
+      font-size: 16px;
     }
     
     .search-input:focus,
     .role-select:focus {
       border-color: #00e6b8;
       outline: none;
-      box-shadow: 0 0 4px rgba(0, 230, 184, 0.5);
+      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
     }
     
     .pagination {
@@ -420,13 +426,6 @@
       border: 1px solid rgba(255, 69, 58, 0.3);
     }
     
-    .button-container {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-    
     .fancy-table {
       width: 100%;
       border-collapse: collapse;
@@ -482,32 +481,21 @@
       100% { transform: rotate(360deg); }
     }
     
-    .card {
-      background-color: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      border: 1px solid #333;
-    }
-    
-    @media (max-width: 600px) {
+    /* Improved responsive layout */
+    @media (max-width: 767px) {
       .search-filters {
         flex-direction: column;
-        gap: 0.5rem;
       }
       
       .filter-group {
         width: 100%;
-      }
-      
-      .search-input,
-      .role-select {
-        width: 100%;
+        margin-bottom: 10px;
       }
       
       .fancy-table {
         display: block;
         overflow-x: auto;
+        white-space: nowrap;
       }
       
       .fancy-table thead {
