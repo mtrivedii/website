@@ -37,12 +37,10 @@
     },
     {
       "route": "/api/upload",
-      "allowedRoles": ["authenticated"],
-      "rewrite": "https://maanit-func.azurewebsites.net/api/upload",
+      "allowedRoles": ["anonymous", "authenticated"],
       "methods": ["POST", "OPTIONS"],
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY"
       }
