@@ -37,7 +37,7 @@
     },
     {
       "route": "/api/upload",
-      "allowedRoles": ["anonymous", "authenticated"],
+      "allowedRoles": ["anonymous", "authenticated", "api"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/upload",
       "methods": ["POST", "OPTIONS"],
       "headers": {
