@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       };
       
-      xhr.open('POST', '/api/upload', true);
+      xhr.open('POST', 'api/upload', true);
       xhr.send(formData);
       
     } catch (error) {
