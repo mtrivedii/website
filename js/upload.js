@@ -127,7 +127,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       };
       
-      xhr.open('POST', 'api/upload', true);
+      // Use the URL path that matches your staticwebapp.config.json route configuration
+      xhr.open('POST', '/api/upload', true);
       xhr.send(formData);
       
     } catch (error) {
