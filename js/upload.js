@@ -48,6 +48,47 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // Helper function to get SAS token with fallback
+  async function getSasToken(filename) {
+    try {
+      // First try the standard SWA route
+      const response = await fetch(`/api/getSasToken?blobName=${encodeURIComponent(filename)}`);
+      
+      // Check if we got HTML instead of JSON
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        console.warn('Received HTML instead of JSON. Trying direct API call...');
+        
+        // Try direct call to Azure Function
+        const directResponse = await fetch(
+          `https://maanit-func.azurewebsites.net/api/getSasToken?blobName=${encodeURIComponent(filename)}`,
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
+        );
+        
+        if (!directResponse.ok) {
+          throw new Error(`Direct API call failed: ${directResponse.status}`);
+        }
+        
+        return await directResponse.json();
+      }
+      
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting SAS token:', error);
+      throw error;
+    }
+  }
+
   // Form submission handler (now uses SAS + direct upload)
   uploadForm.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -61,10 +102,9 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadMessage.className = '';
 
     try {
-      // 1. Request SAS URL from backend
-      const response = await fetch(`/api/getSasToken?blobName=${encodeURIComponent(file.name)}`);
-      if (!response.ok) throw new Error('Failed to get SAS token');
-      const { sasUrl } = await response.json();
+      // Use the new getSasToken function with fallback
+      const data = await getSasToken(file.name);
+      const sasUrl = data.sasUrl;
 
       // 2. Upload the file directly to Blob Storage with progress
       const xhr = new XMLHttpRequest();
