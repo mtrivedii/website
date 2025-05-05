@@ -36,11 +36,12 @@
       }
     },
     {
-      "route": "/api/upload",
-      "allowedRoles": ["anonymous", "authenticated", "api"],
-      "rewrite": "https://maanit-func.azurewebsites.net/api/upload",
-      "methods": ["POST", "OPTIONS"],
+      "route": "/api/getSasToken",
+      "allowedRoles": ["authenticated"],
+      "rewrite": "https://maanit-func.azurewebsites.net/api/getSasToken",
+      "methods": ["GET", "OPTIONS"],
       "headers": {
+        "Content-Type": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY"
@@ -118,21 +119,21 @@
     }
   ],
 
-"auth": {
-  "identityProviders": {
-    "azureActiveDirectory": {
-      "userDetailsClaim": "preferred_username",
-      "registration": {
-        "openIdIssuer": "https://login.microsoftonline.com/6d69eb82-d631-4fb0-b1e8-6b4f85197024/v2.0",
-        "clientIdSettingName": "AAD_CLIENT_ID",
-        "clientSecretSettingName": "AAD_CLIENT_SECRET"
-      },
-      "login": {
-        "loginParameters": ["response_type=code id_token", "prompt=login"]
+  "auth": {
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "userDetailsClaim": "preferred_username",
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/6d69eb82-d631-4fb0-b1e8-6b4f85197024/v2.0",
+          "clientIdSettingName": "AAD_CLIENT_ID",
+          "clientSecretSettingName": "AAD_CLIENT_SECRET"
+        },
+        "login": {
+          "loginParameters": ["response_type=code id_token", "prompt=login"]
+        }
       }
     }
-  }
-},
+  },
   "platform": {
     "apiRuntime": "node:16"
   },
