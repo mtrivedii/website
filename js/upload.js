@@ -11,6 +11,28 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
+  // Add timeout utility for fetch operations
+  async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const signal = controller.signal;
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
+    }
+  }
+
   // File selection handler
   fileInput.addEventListener('change', function() {
     if (this.files.length === 0) {
@@ -34,8 +56,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const isValidType = validExtensions.includes(fileExtension);
     const isValidSize = file.size <= maxSize;
 
+    // Also validate content type for security
+    const validMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'text/csv',
+      'application/json',
+      'application/xml',
+      'text/xml'
+    ];
+    
+    const isValidMimeType = !file.type || validMimeTypes.includes(file.type);
+
     if (!isValidType) {
       uploadMessage.textContent = 'Error: File type not allowed';
+      uploadMessage.className = 'warning';
+      uploadButton.disabled = true;
+    } else if (!isValidMimeType) {
+      uploadMessage.textContent = 'Error: File content type not allowed';
       uploadMessage.className = 'warning';
       uploadButton.disabled = true;
     } else if (!isValidSize) {
@@ -48,86 +91,133 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Helper function to get SAS token
+  // Enhanced SAS token request
   async function getSasToken(filename) {
     try {
-      // Call the local API proxy function instead of direct API
-      const response = await fetch(`/api/proxy-sas?blobName=${encodeURIComponent(filename)}`);
+      // Call the local API proxy with timeout
+      const response = await fetchWithTimeout(
+        `/api/proxy-sas?blobName=${encodeURIComponent(filename)}`, 
+        {},
+        10000
+      );
       
       if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
+        let errorText = await response.text();
+        try {
+          // Try to parse as JSON first
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || errorJson.details || `Failed to get SAS token: ${response.status}`);
+        } catch (parseError) {
+          // If it's not valid JSON, use the raw text (truncated)
+          throw new Error(`Failed to get SAS token: ${errorText.substring(0, 100)}`);
+        }
       }
       
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        throw new Error('Unexpected response format. Please try again later.');
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Unexpected response format: ${contentType}. Expected JSON.`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // Validate response data
+      if (!data || !data.sasUrl) {
+        throw new Error('Invalid SAS token response: missing sasUrl');
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error getting SAS token:', error);
       throw error;
     }
   }
 
-  // Form submission handler (now uses SAS + direct upload)
+  // Form submission handler with enhanced error handling
   uploadForm.addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const file = fileInput.files[0];
     if (!file) return;
 
+    // Show progress UI
     progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
     uploadButton.disabled = true;
-    uploadMessage.textContent = 'Requesting upload URL...';
+    uploadMessage.textContent = 'Requesting upload permission...';
     uploadMessage.className = '';
 
     try {
-      // Use the getSasToken function with local API proxy
+      // Request SAS token
       const data = await getSasToken(file.name);
       const sasUrl = data.sasUrl;
+      
+      uploadMessage.textContent = 'Uploading file...';
 
-      // 2. Upload the file directly to Blob Storage with progress
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
-          progressBar.style.width = percentComplete + '%';
-          progressText.textContent = percentComplete + '%';
-        }
+      // Upload with XMLHttpRequest for progress reporting
+      const uploadPromise = new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        // Set up progress tracking
+        xhr.upload.addEventListener('progress', function(e) {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete + '%';
+          }
+        });
+
+        // Set up completion handler
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              let errorMsg = 'Upload failed: Server returned status ' + xhr.status;
+              if (xhr.statusText) errorMsg = 'Upload failed: ' + xhr.statusText;
+              reject(new Error(errorMsg));
+            }
+          }
+        };
+        
+        // Set up error handler
+        xhr.onerror = function() {
+          reject(new Error('Network error during upload'));
+        };
+        
+        // Set up timeout handler
+        xhr.timeout = 120000; // 2 minutes
+        xhr.ontimeout = function() {
+          reject(new Error('Upload timed out'));
+        };
+
+        // Start the upload
+        xhr.open('PUT', sasUrl, true);
+        xhr.setRequestHeader('x-ms-blob-type', 'BlockBlob');
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.send(file);
       });
 
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            uploadMessage.textContent = 'Upload successful!';
-            uploadMessage.className = 'success';
-            setTimeout(() => {
-              uploadForm.reset();
-              filenameDisplay.textContent = 'No file selected';
-              fileDetails.style.display = 'none';
-              progressContainer.style.display = 'none';
-              progressBar.style.width = '0%';
-              progressText.textContent = '0%';
-              uploadButton.disabled = true;
-            }, 2000);
-          } else {
-            let errorMsg = 'Upload failed: Server returned status ' + xhr.status;
-            if (xhr.statusText) errorMsg = 'Upload failed: ' + xhr.statusText;
-            uploadMessage.textContent = errorMsg;
-            uploadMessage.className = 'warning';
-            uploadButton.disabled = false;
-            progressContainer.style.display = 'none';
-          }
-        }
-      };
-
-      xhr.open('PUT', sasUrl, true);
-      xhr.setRequestHeader('x-ms-blob-type', 'BlockBlob');
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.send(file);
-
+      // Wait for upload to complete
+      await uploadPromise;
+      
+      // Show success message
+      uploadMessage.textContent = 'Upload successful!';
+      uploadMessage.className = 'success';
+      
+      // Reset form after delay
+      setTimeout(() => {
+        uploadForm.reset();
+        filenameDisplay.textContent = 'No file selected';
+        fileDetails.style.display = 'none';
+        progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        uploadButton.disabled = true;
+      }, 2000);
     } catch (error) {
+      // Handle errors
+      console.error('Upload error:', error);
       progressContainer.style.display = 'none';
       uploadMessage.textContent = 'Upload error: ' + error.message;
       uploadMessage.className = 'warning';
