@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Maanit's Web Application Frontend",
     "scripts": {
-      "build": "mkdir -p build && cp -r *.html js style.css staticwebapp.config.json build/"
+      "build": "mkdir -p dist && cp -r *.html js style.css staticwebapp.config.json dist/"
     },
     "private": true
   }
