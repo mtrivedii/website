@@ -94,9 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Enhanced SAS token request
   async function getSasToken(filename) {
     try {
-      // Call the local API proxy with timeout
+      // Call the Azure Function directly through the configured route
       const response = await fetchWithTimeout(
-        `/api/proxy-sas?blobName=${encodeURIComponent(filename)}`, 
+        `/api/getSasToken?blobName=${encodeURIComponent(filename)}`, 
         {},
         10000
       );
