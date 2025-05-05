@@ -43,6 +43,7 @@
       "headers": {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://maanit-func.azurewebsites.net https://*.microsoftonline.com https://login.microsoft.com; frame-ancestors 'none'",
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY"
       }
