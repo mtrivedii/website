@@ -1,8 +1,0 @@
-{
-    "name": "api",
-    "version": "1.0.0",
-    "description": "API Proxy for Azure Functions",
-    "dependencies": {
-      "node-fetch": "^2.6.7"
-    }
-  }
