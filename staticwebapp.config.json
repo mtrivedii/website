@@ -8,14 +8,7 @@
       "route": "/logout",
       "redirect": "/.auth/logout?post_login_redirect_uri=/"
     },
-    {
-      "route": "/api/proxy-sas",
-      "methods": ["GET", "OPTIONS"],
-      "headers": {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
-      }
-    },
+    
     {
       "route": "/api/checkAdmin",
       "allowedRoles": ["authenticated"],
@@ -50,10 +43,8 @@
       "methods": ["GET", "OPTIONS"],
       "headers": {
         "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://maanit-func.azurewebsites.net https://*.microsoftonline.com https://login.microsoft.com; frame-ancestors 'none'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY"
+        "Accept": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     },
     {
