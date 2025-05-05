@@ -48,23 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Helper function to get SAS token with graceful handling
+  // Helper function to get SAS token
   async function getSasToken(filename) {
     try {
-      // Try the SWA route
-      const response = await fetch(`/api/getSasToken?blobName=${encodeURIComponent(filename)}`);
-      
-      // Check if we got HTML instead of JSON
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) {
-        console.warn('Received HTML instead of JSON. API routing issue detected.');
-        
-        // Instead of trying a direct call that will be blocked by CSP, provide a helpful error
-        throw new Error('API routing configuration issue. Please try again later or contact support.');
-      }
+      // Call the local API proxy function instead of direct API
+      const response = await fetch(`/api/proxy-sas?blobName=${encodeURIComponent(filename)}`);
       
       if (!response.ok) {
         throw new Error(`API call failed: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Unexpected response format. Please try again later.');
       }
       
       return await response.json();
@@ -87,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadMessage.className = '';
 
     try {
-      // Use the new getSasToken function with graceful handling
+      // Use the getSasToken function with local API proxy
       const data = await getSasToken(file.name);
       const sasUrl = data.sasUrl;
 

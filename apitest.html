@@ -10,34 +10,30 @@
     <h1>API Test Page</h1>
     
     <div class="card">
-      <h2>API Route Test</h2>
-      <div>
-        <button id="test-swa" class="button">Test SWA Route</button>
-        <button id="test-direct" class="button">Test Direct Azure Function</button>
-      </div>
-      <pre id="result" style="background:#222; color:#fff; padding:10px; margin-top:10px; white-space: pre-wrap;"></pre>
+      <h2>Test Local API</h2>
+      <button id="test-local" class="button">Test /api/test</button>
+      <pre id="local-result" style="background:#222; color:#fff; padding:10px; margin-top:10px; white-space: pre-wrap;"></pre>
     </div>
     
-    <p><a href="/" class="button">Back to Home</a></p>
+    <div class="card">
+      <h2>Test SAS Token API</h2>
+      <button id="test-sas" class="button">Test /api/proxy-sas</button>
+      <pre id="sas-result" style="background:#222; color:#fff; padding:10px; margin-top:10px; white-space: pre-wrap;"></pre>
+    </div>
+    
+    <a href="/" class="button">Back to Home</a>
   </div>
   
   <script>
-    document.getElementById('test-swa').addEventListener('click', async () => {
-      const resultElement = document.getElementById('result');
-      resultElement.textContent = 'Testing SWA API route...';
+    document.getElementById('test-local').addEventListener('click', async () => {
+      const resultElement = document.getElementById('local-result');
+      resultElement.textContent = 'Testing local API...';
       
       try {
-        const response = await fetch('/api/getSasToken?blobName=test.txt');
-        
-        // Get all response headers
-        const headers = {};
-        response.headers.forEach((value, name) => {
-          headers[name] = value;
-        });
+        const response = await fetch('/api/test');
         
         let result = `Status: ${response.status} ${response.statusText}\n`;
-        result += `Content-Type: ${headers['content-type'] || 'none'}\n\n`;
-        result += `Headers:\n${JSON.stringify(headers, null, 2)}\n\n`;
+        result += `Content-Type: ${response.headers.get('content-type') || 'none'}\n\n`;
         
         try {
           const data = await response.json();
@@ -55,31 +51,15 @@
       }
     });
     
-    document.getElementById('test-direct').addEventListener('click', async () => {
-      const resultElement = document.getElementById('result');
-      resultElement.textContent = 'Testing direct Azure Function call...';
+    document.getElementById('test-sas').addEventListener('click', async () => {
+      const resultElement = document.getElementById('sas-result');
+      resultElement.textContent = 'Testing SAS token API...';
       
       try {
-        const response = await fetch(
-          'https://maanit-func.azurewebsites.net/api/getSasToken?blobName=test.txt',
-          {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json'
-            }
-          }
-        );
-        
-        // Get all response headers
-        const headers = {};
-        response.headers.forEach((value, name) => {
-          headers[name] = value;
-        });
+        const response = await fetch('/api/proxy-sas?blobName=test.txt');
         
         let result = `Status: ${response.status} ${response.statusText}\n`;
-        result += `Content-Type: ${headers['content-type'] || 'none'}\n\n`;
-        result += `Headers:\n${JSON.stringify(headers, null, 2)}\n\n`;
+        result += `Content-Type: ${response.headers.get('content-type') || 'none'}\n\n`;
         
         try {
           const data = await response.json();
