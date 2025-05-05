@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Maanit's Web Application Frontend",
     "scripts": {
-      "build": "echo 'Static site - copying config file' && cp staticwebapp.config.json ."
+      "build": "mkdir -p build && cp -r *.html js style.css staticwebapp.config.json build/"
     },
     "private": true
   }
