@@ -48,34 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Helper function to get SAS token with fallback
+  // Helper function to get SAS token with graceful handling
   async function getSasToken(filename) {
     try {
-      // First try the standard SWA route
+      // Try the SWA route
       const response = await fetch(`/api/getSasToken?blobName=${encodeURIComponent(filename)}`);
       
       // Check if we got HTML instead of JSON
       const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('text/html')) {
-        console.warn('Received HTML instead of JSON. Trying direct API call...');
+        console.warn('Received HTML instead of JSON. API routing issue detected.');
         
-        // Try direct call to Azure Function
-        const directResponse = await fetch(
-          `https://maanit-func.azurewebsites.net/api/getSasToken?blobName=${encodeURIComponent(filename)}`,
-          {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json'
-            }
-          }
-        );
-        
-        if (!directResponse.ok) {
-          throw new Error(`Direct API call failed: ${directResponse.status}`);
-        }
-        
-        return await directResponse.json();
+        // Instead of trying a direct call that will be blocked by CSP, provide a helpful error
+        throw new Error('API routing configuration issue. Please try again later or contact support.');
       }
       
       if (!response.ok) {
@@ -102,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadMessage.className = '';
 
     try {
-      // Use the new getSasToken function with fallback
+      // Use the new getSasToken function with graceful handling
       const data = await getSasToken(file.name);
       const sasUrl = data.sasUrl;
 
