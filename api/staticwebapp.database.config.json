@@ -1,0 +1,31 @@
+{
+  "version": "1.0.0",
+  "runtime": {
+    "rest": {
+      "route": "/data-api/rest"
+    }
+  },
+  "entities": {
+    "Scoreboard": {
+      "source": "dbo.vw_Scoreboard",
+      "primaryKey": "ScoreID",
+      "allowAnonymousGet": true,
+      "permissions": [
+        { "actions": ["read"], "role": "anonymous" }
+      ]
+    },
+    "users": {
+      "source": "dbo.users",
+      "primaryKey": "id",
+      "allowAnonymousGet": false,
+      "fields": {
+        "id": { "type": "int" },
+        "email": { "type": "string" },
+        "Role": { "type": "string" }
+      },
+      "permissions": [
+        { "actions": ["read"], "role": "authenticated" }
+      ]
+    }
+  }
+}
