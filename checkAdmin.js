@@ -12,28 +12,41 @@ async function handler(req, res) {
   }
 
   try {
-    // Create explicit SQL Server configuration with all needed properties
-    const sqlConfig = {
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      server: process.env.DB_SERVER,
-      pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000
-      },
+    // Parse connection string or use explicit config
+    const connectionString = process.env.SqlConnectionString;
+    
+    if (!connectionString) {
+      console.error('SqlConnectionString environment variable is not defined');
+      return res.status(500).json({ 
+        error: 'Database configuration error', 
+        details: 'Database connection string is not configured' 
+      });
+    }
+
+    console.log('Attempting to connect to database with connection string');
+    
+    // Create SQL config with explicit credentials
+    const config = {
+      connectionString: connectionString,
       options: {
-        encrypt: true, // for Azure SQL
-        trustServerCertificate: false, // change to true for local dev / self-signed certs
+        enableArithAbort: true,
+        encrypt: true,
+        trustServerCertificate: false,
         connectTimeout: 30000
       }
     };
 
-    // Try to connect with the explicit configuration
-    await sql.connect(sqlConfig);
+    // For debugging, log the config (without sensitive parts)
+    console.log('SQL Config:', JSON.stringify({
+      options: config.options,
+      // Log if key parts exist or not
+      connectionStringExists: !!config.connectionString,
+    }));
+
+    // Connect to database
+    const pool = await sql.connect(config);
     
-    const request = new sql.Request();
+    const request = new sql.Request(pool);
     request.input('userId', sql.NVarChar, userInfo.userId);
 
     const query = 'SELECT Role FROM Users WHERE AzureID = @userId';
@@ -63,7 +76,6 @@ async function handler(req, res) {
     console.error('Database error:', err);
     return res.status(500).json({ error: 'Database error', details: err.message });
   } finally {
-    // Close the connection
     try {
       await sql.close();
     } catch (closeErr) {
