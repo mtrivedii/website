@@ -46,19 +46,43 @@
 
     async function checkAuthStatus() {
       try {
+        if (debugInfo) debugLog('Fetching /.auth/me...');
         const authResponse = await fetch('/.auth/me');
+        if (debugInfo) debugLog(`Auth status: ${authResponse.status} ${authResponse.statusText}`);
+        
+        // Log all response headers
+        const headers = {};
+        authResponse.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        if (debugInfo) debugLog(`Response headers: ${JSON.stringify(headers)}`);
+        
         if (authResponse.ok) {
-          const authData = await authResponse.json();
-          if (authData && authData.clientPrincipal) {
-            document.getElementById('logout-button').style.display = '';
-            if (debugInfo) debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
-            checkAdminStatus();
-          } else {
-            if (debugInfo) debugLog('Not authenticated or missing client principal');
+          try {
+            const responseText = await authResponse.text();
+            if (debugInfo) debugLog(`Auth response: ${responseText}`);
+            
+            const authData = JSON.parse(responseText);
+            if (authData && authData.clientPrincipal) {
+              document.getElementById('logout-button').style.display = '';
+              if (debugInfo) debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
+              checkAdminStatus();
+            } else {
+              if (debugInfo) debugLog('Auth data received but clientPrincipal is missing');
+              hideLoader();
+            }
+          } catch (parseError) {
+            if (debugInfo) debugLog(`Error parsing auth response: ${parseError.message}`);
             hideLoader();
           }
         } else {
           if (debugInfo) debugLog(`Auth status check failed: ${authResponse.status}`);
+          try {
+            const errorText = await authResponse.text();
+            if (debugInfo) debugLog(`Auth error details: ${errorText}`);
+          } catch (e) {
+            if (debugInfo) debugLog(`Could not read error details: ${e.message}`);
+          }
           hideLoader();
         }
       } catch (error) {
@@ -87,6 +111,14 @@
         clearTimeout(timeoutId);
 
         if (debugInfo) debugLog(`Admin check response: ${adminResponse.status}`);
+        
+        // Try to get response details
+        try {
+          const responseText = await adminResponse.text();
+          if (debugInfo) debugLog(`Admin check details: ${responseText}`);
+        } catch (e) {
+          if (debugInfo) debugLog(`Could not read admin check details: ${e.message}`);
+        }
 
         if (adminResponse.status === 200) {
           document.getElementById('admin-panel-link').style.display = '';
@@ -107,8 +139,20 @@
       }
     }
 
+    // Check for cookies to debug auth issues
+    function checkCookies() {
+      if (debugInfo) {
+        const cookies = document.cookie.split(';');
+        debugLog(`Cookies found: ${cookies.length}`);
+        cookies.forEach((cookie, index) => {
+          debugLog(`Cookie ${index + 1}: ${cookie.trim().substring(0, 30)}...`);
+        });
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       if (debugInfo) debugLog('Page loaded, initiating auth checks');
+      checkCookies();
       checkAuthStatus();
       setTimeout(hideLoader, 15000);
     });
