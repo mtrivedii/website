@@ -1,5 +1,5 @@
 const sql = require('mssql');
-const { extractUserInfo, requireRole } = require('./auth-utilities');
+const { extractUserInfo } = require('./auth-utilities');
 
 async function handler(req, res) {
   console.log('Request headers:', JSON.stringify(req.headers));
@@ -29,7 +29,7 @@ async function handler(req, res) {
 
     // Connect to database
     await sql.connect(sqlConfig);
-    
+
     const request = new sql.Request();
     request.input('userId', sql.NVarChar, userInfo.userId);
 
@@ -48,7 +48,8 @@ async function handler(req, res) {
 
     console.log(`User role found: ${userRole}`);
 
-    if (requireRole({ ...userInfo, allRoles: [userRole] }, 'admin')) {
+    // Direct admin check from DB
+    if (userRole && userRole.trim().toLowerCase() === 'admin') {
       console.log(`Admin access granted for user ${userInfo.userId}`);
       return res.status(200).json({ message: 'Admin access granted' });
     }
