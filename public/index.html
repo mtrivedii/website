@@ -63,12 +63,30 @@
             if (debugInfo) debugLog(`Auth response: ${responseText}`);
             
             const authData = JSON.parse(responseText);
-            if (authData && authData.clientPrincipal) {
+            
+            // Check if we received the array format instead of clientPrincipal format
+            if (Array.isArray(authData) && authData.length > 0) {
+              // Successfully authenticated - using the array format
+              const provider = authData[0];
+              if (debugInfo) debugLog(`Authenticated with provider: ${provider.provider_name}`);
+              
+              // Find the user email/name from claims
+              const userEmail = provider.user_id || '';
+              const nameClaim = provider.user_claims.find(c => c.typ === 'name');
+              const userName = nameClaim ? nameClaim.val : userEmail;
+              
+              if (debugInfo) debugLog(`User: ${userName} (${userEmail})`);
+              
+              // Show logout button and check admin status
+              document.getElementById('logout-button').style.display = '';
+              checkAdminStatus();
+            } else if (authData && authData.clientPrincipal) {
+              // Original expected format with clientPrincipal
               document.getElementById('logout-button').style.display = '';
               if (debugInfo) debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
               checkAdminStatus();
             } else {
-              if (debugInfo) debugLog('Auth data received but clientPrincipal is missing');
+              if (debugInfo) debugLog('Auth data received but in unexpected format');
               hideLoader();
             }
           } catch (parseError) {
