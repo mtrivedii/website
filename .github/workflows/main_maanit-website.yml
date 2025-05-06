@@ -9,6 +9,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,23 +25,18 @@ jobs:
           npm run test --if-present
         working-directory: ./api
 
-      # If you need to build the frontend and copy its build output into the backend's public folder, add:
-      # - name: npm install and build (Frontend)
-      #   run: |
-      #     npm install
-      #     npm run build
-      #   working-directory: ./api/frontend
-      #
-      # - name: Copy frontend build to backend public folder
-      #   run: |
-      #     rm -rf ./api/public
-      #     cp -r ./api/frontend/build ./api/public
-      #   # Adjust the build/public paths as needed for your frontend framework
+      # If you need to build the frontend, add steps here (see note below)
+
+      - name: 'Login to Azure'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'your-app-name' # <-- Replace with your Azure Web App name
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: ./api
