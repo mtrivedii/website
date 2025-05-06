@@ -12,41 +12,25 @@ async function handler(req, res) {
   }
 
   try {
-    // Parse connection string or use explicit config
-    const connectionString = process.env.SqlConnectionString;
-    
-    if (!connectionString) {
-      console.error('SqlConnectionString environment variable is not defined');
-      return res.status(500).json({ 
-        error: 'Database configuration error', 
-        details: 'Database connection string is not configured' 
-      });
-    }
-
-    console.log('Attempting to connect to database with connection string');
-    
-    // Create SQL config with explicit credentials
-    const config = {
-      connectionString: connectionString,
+    // Configuration for Azure SQL with Entra ID authentication
+    const sqlConfig = {
+      server: process.env.DB_SERVER || 'yourserver.database.windows.net', // Replace with your server
+      database: process.env.DB_NAME || 'yourdatabase', // Replace with your database
+      authentication: {
+        type: 'azure-active-directory-msi-app-service',
+      },
       options: {
-        enableArithAbort: true,
         encrypt: true,
-        trustServerCertificate: false,
-        connectTimeout: 30000
+        trustServerCertificate: false
       }
     };
 
-    // For debugging, log the config (without sensitive parts)
-    console.log('SQL Config:', JSON.stringify({
-      options: config.options,
-      // Log if key parts exist or not
-      connectionStringExists: !!config.connectionString,
-    }));
+    console.log('Connecting to SQL Server with Entra ID (MSI) authentication');
 
     // Connect to database
-    const pool = await sql.connect(config);
+    await sql.connect(sqlConfig);
     
-    const request = new sql.Request(pool);
+    const request = new sql.Request();
     request.input('userId', sql.NVarChar, userInfo.userId);
 
     const query = 'SELECT Role FROM Users WHERE AzureID = @userId';
