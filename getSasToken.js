@@ -1,5 +1,5 @@
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require("@azure/storage-blob");
-const { extractUserInfo } = require('./enhanced-auth-utilities'); // Use your auth utility
+const { extractUserInfo } = require('./auth-utilities'); // Use your auth utility
 
 // Express route handler
 async function getSasTokenHandler(req, res) {
