@@ -1,6 +1,6 @@
 // checkAdmin.js
 const sql = require('mssql');
-const { extractUserInfo, requireRole } = require('./enhanced-auth-utilities');
+const { extractUserInfo, requireRole } = require('./auth-utilities');
 
 async function handler(req, res) {
   // Log request headers for debugging
