@@ -8,7 +8,7 @@ async function handler(req, res) {
 
   if (!userInfo.isAuthenticated || !userInfo.userId || typeof userInfo.userId !== 'string' || userInfo.userId.length < 5) {
     console.warn('Unauthorized: Missing or invalid user ID');
-    return res.status(401).json({ error: 'Unauthorized', details: 'Missing or invalid user ID' });
+    return res.status(401).json({ error: 'Unauthorized', details: 'Not authenticated or missing client principal' });
   }
 
   try {
