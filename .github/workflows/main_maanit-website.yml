@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  id-token: write    # Required for OIDC login to Azure
+  contents: read     # Required for actions/checkout
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -25,7 +29,7 @@ jobs:
           npm run test --if-present
         working-directory: ./api
 
-      # If you need to build the frontend, add steps here (see note below)
+      # If you need to build the frontend, add steps here (see previous guidance)
 
       - name: 'Login to Azure'
         uses: azure/login@v2
@@ -37,6 +41,6 @@ jobs:
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'your-app-name' # <-- Replace with your Azure Web App name
+          app-name: 'maanit-website-cgcahtb3enhhhchr.northeurope-01.azurewebsites.net' # <-- Replace with your Azure Web App name
           slot-name: 'Production'
           package: ./api
