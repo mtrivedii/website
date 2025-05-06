@@ -40,7 +40,7 @@
     },
     {
       "route": "/upload.html",
-      "allowedRoles": ["authenticated"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "serve": "/upload.html",
       "statusCode": 200,
       "headers": {
@@ -53,6 +53,7 @@
     },
     {
       "route": "/",
+      "allowedRoles": ["anonymous", "authenticated"],
       "serve": "/index.html",
       "statusCode": 200,
       "headers": {
