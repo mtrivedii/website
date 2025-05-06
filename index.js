@@ -4,7 +4,7 @@ const path = require('path');
 // Import handlers
 const checkAdminHandler = require('./checkAdmin');
 const getSasTokenHandler = require('./getSasToken');
-const usersRouter = require('./users'); // This is an Express router
+const usersRouter = require('./users'); // Express router
 
 const app = express();
 
@@ -24,7 +24,7 @@ app.post('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 app.get('/api/getSasToken', requireAuth, getSasTokenHandler.handler);
 app.options('/api/getSasToken', requireAuth, getSasTokenHandler.handler);
 
-// Mount the users router (users.js handles /api/users with all its logic and security)
+// Mount the users router (users.js handles /api/users)
 app.use('/api', requireAuth, usersRouter);
 
 // Serve static files from 'public' directory (your frontend)
