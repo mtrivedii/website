@@ -12,7 +12,27 @@ async function handler(req, res) {
   }
 
   try {
-    await sql.connect(process.env.SqlConnectionString);
+    // Create explicit SQL Server configuration with all needed properties
+    const sqlConfig = {
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      server: process.env.DB_SERVER,
+      pool: {
+        max: 10,
+        min: 0,
+        idleTimeoutMillis: 30000
+      },
+      options: {
+        encrypt: true, // for Azure SQL
+        trustServerCertificate: false, // change to true for local dev / self-signed certs
+        connectTimeout: 30000
+      }
+    };
+
+    // Try to connect with the explicit configuration
+    await sql.connect(sqlConfig);
+    
     const request = new sql.Request();
     request.input('userId', sql.NVarChar, userInfo.userId);
 
@@ -42,6 +62,13 @@ async function handler(req, res) {
   } catch (err) {
     console.error('Database error:', err);
     return res.status(500).json({ error: 'Database error', details: err.message });
+  } finally {
+    // Close the connection
+    try {
+      await sql.close();
+    } catch (closeErr) {
+      console.error('Error closing SQL connection:', closeErr);
+    }
   }
 }
 
