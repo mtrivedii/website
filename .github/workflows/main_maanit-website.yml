@@ -17,15 +17,30 @@ jobs:
         with:
           node-version: '20.x'
 
-      - name: npm install, build, and test
+      - name: npm install, build, and test (API)
         run: |
           npm install
           npm run build --if-present
           npm run test --if-present
+        working-directory: ./api
+
+      # If you need to build the frontend and copy its build output into the backend's public folder, add:
+      # - name: npm install and build (Frontend)
+      #   run: |
+      #     npm install
+      #     npm run build
+      #   working-directory: ./api/frontend
+      #
+      # - name: Copy frontend build to backend public folder
+      #   run: |
+      #     rm -rf ./api/public
+      #     cp -r ./api/frontend/build ./api/public
+      #   # Adjust the build/public paths as needed for your frontend framework
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'your-app-name'
+          app-name: 'your-app-name' # <-- Replace with your Azure Web App name
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          package: ./api
