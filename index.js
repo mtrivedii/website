@@ -13,8 +13,8 @@ app.disable('x-powered-by');
 
 // Security headers middleware - add this before any routes
 app.use((req, res, next) => {
-  // Set security headers
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  // Set security headers with updated CSP to allow backend connections
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -51,7 +51,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     // Don't apply CSP to CSS and JS files to avoid breaking functionality
     if (!path.endsWith('.css') && !path.endsWith('.js')) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
     }
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
