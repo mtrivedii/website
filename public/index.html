@@ -24,87 +24,56 @@
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
       <a href="/.auth/logout?post_logout_redirect_uri=/" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
-    <div id="debug-info" class="debug-panel"></div>
+    <!-- Debug panel removed -->
   </div>
 
   <script>
     const loadingEl = document.getElementById('loading');
-    const debugInfo = document.getElementById('debug-info');
+    // Debug info reference removed
     
     function hideLoader() {
       if (loadingEl) loadingEl.style.display = 'none';
     }
+    
+    // Replace debug functions with empty or minimal versions
     function debugLog(message) {
-      console.log(message);
-      if (debugInfo) debugInfo.innerHTML += `<div>${message}</div>`;
+      // No logging in production
     }
+    
     function handleError(error) {
-      console.error('Error:', error);
-      if (debugInfo) debugLog(`Error: ${error.message || 'Unknown error'}`);
+      // Silent error handling for production
       hideLoader();
     }
 
     async function checkAuthStatus() {
       try {
-        if (debugInfo) debugLog('Fetching /.auth/me...');
         const authResponse = await fetch('/.auth/me');
-        if (debugInfo) debugLog(`Auth status: ${authResponse.status} ${authResponse.statusText}`);
-        
-        // Log all response headers
-        const headers = {};
-        authResponse.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-        if (debugInfo) debugLog(`Response headers: ${JSON.stringify(headers)}`);
         
         if (authResponse.ok) {
           try {
             const responseText = await authResponse.text();
-            if (debugInfo) debugLog(`Auth response: ${responseText}`);
-            
             const authData = JSON.parse(responseText);
             
             // Check if we received the array format instead of clientPrincipal format
             if (Array.isArray(authData) && authData.length > 0) {
               // Successfully authenticated - using the array format
-              const provider = authData[0];
-              if (debugInfo) debugLog(`Authenticated with provider: ${provider.provider_name}`);
-              
-              // Find the user email/name from claims
-              const userEmail = provider.user_id || '';
-              const nameClaim = provider.user_claims.find(c => c.typ === 'name');
-              const userName = nameClaim ? nameClaim.val : userEmail;
-              
-              if (debugInfo) debugLog(`User: ${userName} (${userEmail})`);
-              
-              // Show logout button and check admin status
               document.getElementById('logout-button').style.display = '';
               checkAdminStatus();
             } else if (authData && authData.clientPrincipal) {
               // Original expected format with clientPrincipal
               document.getElementById('logout-button').style.display = '';
-              if (debugInfo) debugLog(`Authenticated as: ${authData.clientPrincipal.userDetails}`);
               checkAdminStatus();
             } else {
-              if (debugInfo) debugLog('Auth data received but in unexpected format');
               hideLoader();
             }
           } catch (parseError) {
-            if (debugInfo) debugLog(`Error parsing auth response: ${parseError.message}`);
             hideLoader();
           }
         } else {
-          if (debugInfo) debugLog(`Auth status check failed: ${authResponse.status}`);
-          try {
-            const errorText = await authResponse.text();
-            if (debugInfo) debugLog(`Auth error details: ${errorText}`);
-          } catch (e) {
-            if (debugInfo) debugLog(`Could not read error details: ${e.message}`);
-          }
           hideLoader();
         }
       } catch (error) {
-        handleError(error);
+        hideLoader();
       }
     }
 
@@ -114,10 +83,8 @@
         const timeoutId = setTimeout(() => {
           controller.abort();
           hideLoader();
-          if (debugInfo) debugLog('Admin check timed out');
         }, 10000);
 
-        if (debugInfo) debugLog('Fetching /api/checkAdmin...');
         const adminResponse = await fetch('/api/checkAdmin', {
           signal: controller.signal,
           headers: {
@@ -128,49 +95,22 @@
 
         clearTimeout(timeoutId);
 
-        if (debugInfo) debugLog(`Admin check response: ${adminResponse.status}`);
-        
-        // Try to get response details
-        try {
-          const responseText = await adminResponse.text();
-          if (debugInfo) debugLog(`Admin check details: ${responseText}`);
-        } catch (e) {
-          if (debugInfo) debugLog(`Could not read admin check details: ${e.message}`);
-        }
-
         if (adminResponse.status === 200) {
           document.getElementById('admin-panel-link').style.display = '';
           document.getElementById('users-link').style.display = '';
-          if (debugInfo) debugLog('User is admin, showing admin links');
         } else if (adminResponse.status === 401) {
-          if (debugInfo) debugLog('Not authenticated, redirecting to login...');
           window.location.href = '/.auth/login/aad?post_login_redirect_uri=/admin.html';
-        } else {
-          if (debugInfo) debugLog('User is not admin');
         }
       } catch (error) {
-        if (error.name !== 'AbortError') {
-          handleError(error);
-        }
+        // Silent error handling
       } finally {
         hideLoader();
       }
     }
 
-    // Check for cookies to debug auth issues
-    function checkCookies() {
-      if (debugInfo) {
-        const cookies = document.cookie.split(';');
-        debugLog(`Cookies found: ${cookies.length}`);
-        cookies.forEach((cookie, index) => {
-          debugLog(`Cookie ${index + 1}: ${cookie.trim().substring(0, 30)}...`);
-        });
-      }
-    }
+    // Cookie checking removed
 
     window.addEventListener('DOMContentLoaded', () => {
-      if (debugInfo) debugLog('Page loaded, initiating auth checks');
-      checkCookies();
       checkAuthStatus();
       setTimeout(hideLoader, 15000);
     });
@@ -241,22 +181,7 @@
       background-color: #00ffcc;
       box-shadow: 0 0 10px #00e6b8;
     }
-    .debug-panel {
-      max-width: 600px;
-      margin: 30px auto;
-      padding: 10px;
-      border: 1px solid #333;
-      color: #aaa;
-      font-size: 12px;
-      text-align: left;
-      background-color: rgba(0, 0, 0, 0.3);
-      max-height: 150px;
-      overflow-y: auto;
-      line-height: 1.4;
-    }
-    .debug-panel div {
-      margin-bottom: 3px;
-    }
+    /* Debug panel CSS removed */
   </style>
 </body>
 </html>
