@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const helmet = require('helmet');
 
 // Import handlers
 const checkAdminHandler = require('./checkAdmin');
@@ -9,30 +8,23 @@ const usersRouter = require('./users'); // Express router
 
 const app = express();
 
-// Apply Helmet with customized CSP
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts if needed for your app
-        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles if needed for your app
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        frameAncestors: ["'none'"],
-        connectSrc: ["'self'", "https://*.microsoftonline.com", "https://login.microsoft.com"]
-      }
-    },
-    // Other Helmet options can be customized here
-    xFrameOptions: { action: 'deny' },
-    // Force Strict-Transport-Security even if Azure already sets it
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true
-    }
-  })
-);
+// Disable X-Powered-By header
+app.disable('x-powered-by');
+
+// Security headers middleware - add this before any routes
+app.use((req, res, next) => {
+  // Set security headers
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+  
+  // Already set by Azure but including for completeness
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  
+  next();
+});
 
 // Middleware to require authentication using Easy Auth headers
 function requireAuth(req, res, next) {
@@ -53,8 +45,20 @@ app.options('/api/getSasToken', requireAuth, getSasTokenHandler.handler);
 // Mount the users router (users.js handles /api/users)
 app.use('/api', requireAuth, usersRouter);
 
-// Serve static files from 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from 'public' directory (your frontend)
+app.use(express.static(path.join(__dirname, 'public'), {
+  // Set headers for static files
+  setHeaders: (res, path) => {
+    // Don't apply CSP to CSS and JS files to avoid breaking functionality
+    if (!path.endsWith('.css') && !path.endsWith('.js')) {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    }
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+  }
+}));
 
 // Optional: SPA fallback to index.html
 app.get('*', (req, res) => {
