@@ -95,10 +95,11 @@
 
         clearTimeout(timeoutId);
 
-        if (adminResponse.status === 200) {
-          document.getElementById('admin-panel-link').style.display = '';
-          document.getElementById('users-link').style.display = '';
-        } else if (adminResponse.status === 401) {
+        // Always show admin buttons for authenticated users, regardless of role
+        document.getElementById('admin-panel-link').style.display = '';
+        document.getElementById('users-link').style.display = '';
+        
+        if (adminResponse.status === 401) {
           window.location.href = '/.auth/login/aad?post_login_redirect_uri=/admin.html';
         }
       } catch (error) {
