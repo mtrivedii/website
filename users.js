@@ -1,4 +1,4 @@
-// users.js - Secure /api/users route for your table structure
+// users.js - Secure /api/users route for your table structure (fixed connection string)
 
 const express = require('express');
 const sql = require('mssql');
@@ -13,34 +13,19 @@ const {
 
 const router = express.Router();
 
+// Simple request ID generator (no crypto)
 function generateRequestId() {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 10);
   return `${timestamp}-${randomPart}`;
 }
 
-// SQL connection pooling
+// SQL connection pooling using only the connection string
 let sqlPool = null;
-const poolConnectTimeout = 30000; // 30 seconds
-
 async function getSqlPool() {
   if (!sqlPool) {
     try {
-      sqlPool = await sql.connect({
-        connectionString: process.env.SqlConnectionString,
-        options: {
-          encrypt: true,
-          trustServerCertificate: false,
-          connectTimeout: poolConnectTimeout,
-          requestTimeout: 15000,
-          maxRetriesOnTransientErrors: 3,
-          pool: {
-            max: 10,
-            min: 0,
-            idleTimeoutMillis: 30000
-          }
-        }
-      });
+      sqlPool = await sql.connect(process.env.SqlConnectionString);
       sqlPool.on('error', err => {
         console.error('SQL connection pool error:', err);
         sqlPool = null;
