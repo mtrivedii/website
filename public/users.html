@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Security headers -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-  <!-- Cache control -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
 </head>
 <body>
   <div class="container">
     <h1>👥 User Directory</h1>
-    
+
     <div class="filter-container">
       <div class="search-filters">
         <div class="filter-group">
@@ -35,17 +30,17 @@
         </div>
       </div>
     </div>
-    
+
     <div id="users" class="table-container">
       <div class="spinner"></div>
     </div>
-    
+
     <div id="pagination" class="pagination hidden">
       <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
       <span id="pageInfo" class="page-info">Page 1 of 1</span>
       <button id="nextPage" class="button pagination-button">Next &raquo;</button>
     </div>
-    
+
     <div class="button-container">
       <a class="button" href="index.html">← Home</a>
       <button id="refreshButton" class="button">Refresh Data</button>
@@ -53,7 +48,6 @@
   </div>
 
   <script>
-    // State management for user data and pagination
     const state = {
       users: [],
       filteredUsers: [],
@@ -61,589 +55,144 @@
       itemsPerPage: 10,
       loaded: false
     };
-    
-    // Using secure data that doesn't expose passwords or sensitive IDs
-    const userData = [
-      { 
-        id: 1, 
-        email: "maanit49@gmail.com", 
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: null,
-        passwordLastChanged: "2023-11-15T10:30:00Z",
-        Role: ""
-      },
-      { 
-        id: 7, 
-        email: "StudentAdmin@fictproftaa...", 
-        status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(), // 3 days ago
-        passwordLastChanged: "2024-03-12T14:20:00Z",
-        Role: "admin"
-      },
-      { 
-        id: 9, 
-        email: "security.officer@example.com", 
-        status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(), // 1 day ago
-        passwordLastChanged: "2024-01-20T09:15:00Z",
-        Role: "admin"
-      },
-      { 
-        id: 10, 
-        email: "marketing.director@example.com", 
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: new Date(Date.now() - 5*24*60*60*1000).toISOString(), // 5 days ago
-        passwordLastChanged: "2024-02-10T16:45:00Z",
-        Role: "user"
+
+    async function fetchUserData() {
+      try {
+        const response = await fetch('/api/users', { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        return [];
       }
-    ];
-    
-    // Sanitize string to prevent XSS
+    }
+
     function sanitizeHtml(str) {
       if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
-    
-    // Format date in a friendly way
+
     function formatDate(dateString) {
       if (!dateString) return 'Never';
-      
       const date = new Date(dateString);
       const now = new Date();
-      const diffTime = Math.abs(now - date);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 0) {
-        return 'Today';
-      } else if (diffDays === 1) {
-        return 'Yesterday';
-      } else if (diffDays < 7) {
-        return `${diffDays} days ago`;
-      } else {
-        return date.toLocaleDateString();
-      }
+      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      if (diff < 7) return `${diff} days ago`;
+      return date.toLocaleDateString();
     }
-    
-    // Format password age in a friendly way
+
     function getPasswordAge(dateString) {
       if (!dateString) return 'Unknown';
-      
       const date = new Date(dateString);
       const now = new Date();
-      const diffTime = Math.abs(now - date);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays < 30) {
-        return `${diffDays} days`;
-      } else {
-        const months = Math.floor(diffDays / 30);
-        return `${months} month${months !== 1 ? 's' : ''}`;
-      }
+      const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      return diffDays < 30 ? `${diffDays} days` : `${Math.floor(diffDays / 30)} month(s)`;
     }
-    
-    // Initialize the data and render the table
-    function loadUsers() {
+
+    async function loadUsers() {
       const target = document.getElementById("users");
-      
-      // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
-      
-      // Use the data from your table
-      setTimeout(() => {
-        // Simulate a short loading delay for better UX
-        state.users = userData;
-        state.filteredUsers = [...userData];
+
+      try {
+        const data = await fetchUserData();
+        state.users = data.map(user => ({
+          id: user.id,
+          email: user.email,
+          status: "Active",
+          twoFactorEnabled: false,
+          lastLogin: null,
+          passwordLastChanged: null,
+          Role: user.Role || ''
+        }));
+        state.filteredUsers = [...state.users];
         state.loaded = true;
-        
-        // Render and setup
+
         renderUsers();
         setupFilters();
-      }, 300);
+      } catch (err) {
+        console.error('Error loading users:', err);
+        target.innerHTML = '<p class="warning">Failed to load users.</p>';
+      }
     }
-    
-    // Render users with pagination
+
     function renderUsers() {
-      if (!state.loaded) return;
-      
       const target = document.getElementById("users");
       const paginationElement = document.getElementById("pagination");
       const pageInfo = document.getElementById("pageInfo");
-      const prevButton = document.getElementById("prevPage");
-      const nextButton = document.getElementById("nextPage");
-      
-      // Calculate pagination
+
       const totalPages = Math.ceil(state.filteredUsers.length / state.itemsPerPage);
       const startIndex = (state.currentPage - 1) * state.itemsPerPage;
-      const endIndex = Math.min(startIndex + state.itemsPerPage, state.filteredUsers.length);
-      const currentPageUsers = state.filteredUsers.slice(startIndex, endIndex);
-      
-      // Update pagination display
+      const currentPageUsers = state.filteredUsers.slice(startIndex, startIndex + state.itemsPerPage);
+
       pageInfo.textContent = `Page ${state.currentPage} of ${totalPages || 1}`;
-      prevButton.disabled = state.currentPage <= 1;
-      nextButton.disabled = state.currentPage >= totalPages;
-      
-      // Show/hide pagination based on data
-      if (state.filteredUsers.length > state.itemsPerPage) {
-        paginationElement.classList.remove("hidden");
-      } else {
-        paginationElement.classList.add("hidden");
-      }
-      
-      // Create table element
+      document.getElementById("prevPage").disabled = state.currentPage <= 1;
+      document.getElementById("nextPage").disabled = state.currentPage >= totalPages;
+      paginationElement.classList.toggle("hidden", totalPages <= 1);
+
       const table = document.createElement("table");
       table.className = "fancy-table";
-      
-      // Table header - SECURITY ENHANCED VERSION
-      const thead = document.createElement("thead");
-      thead.innerHTML = `
-        <tr>
-          <th>ID</th>
-          <th>Email</th>
-          <th>Status</th>
-          <th>2FA</th>
-          <th>Last Login</th>
-          <th>Password Age</th>
-          <th>Role</th>
-        </tr>
+
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>ID</th><th>Email</th><th>Status</th><th>2FA</th>
+            <th>Last Login</th><th>Password Age</th><th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${currentPageUsers.map(user => `
+            <tr>
+              <td data-label="ID">${sanitizeHtml(user.id)}</td>
+              <td data-label="Email">${sanitizeHtml(user.email)}</td>
+              <td data-label="Status"><span class="badge success">Active</span></td>
+              <td data-label="2FA">${user.twoFactorEnabled ? '<span class="badge success">Enabled</span>' : '<span class="badge warning">Disabled</span>'}</td>
+              <td data-label="Last Login">${formatDate(user.lastLogin)}</td>
+              <td data-label="Password Age">${getPasswordAge(user.passwordLastChanged)}</td>
+              <td data-label="Role">${sanitizeHtml(user.Role || '—')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
       `;
-      table.appendChild(thead);
-      
-      // Table body
-      const tbody = document.createElement("tbody");
-      
-      if (currentPageUsers.length === 0) {
-        // No results after filtering
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td colspan="7" class="no-results">No users match your search criteria</td>
-        `;
-        tbody.appendChild(tr);
-      } else {
-        // Render user rows with sanitized data
-        currentPageUsers.forEach(user => {
-          const tr = document.createElement("tr");
-          
-          // Sanitize all data to prevent XSS
-          const id = sanitizeHtml(user.id);
-          const email = sanitizeHtml(user.email);
-          const status = sanitizeHtml(user.status || 'Unknown');
-          const twoFA = user.twoFactorEnabled ? 
-            '<span class="badge success">Enabled</span>' : 
-            '<span class="badge warning">Disabled</span>';
-          const lastLogin = formatDate(user.lastLogin);
-          const passwordAge = getPasswordAge(user.passwordLastChanged);
-          const role = sanitizeHtml(user.Role || '–');
-          
-          tr.innerHTML = `
-            <td data-label="ID">${id}</td>
-            <td data-label="Email">${email}</td>
-            <td data-label="Status">
-              <span class="badge ${status === 'Active' ? 'success' : 'danger'}">${status}</span>
-            </td>
-            <td data-label="2FA">${twoFA}</td>
-            <td data-label="Last Login">${lastLogin}</td>
-            <td data-label="Password Age">${passwordAge}</td>
-            <td data-label="Role">${role}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
-      
-      table.appendChild(tbody);
-      
-      // Update DOM
+
       target.innerHTML = "";
       target.appendChild(table);
     }
-    
-    // Set up filtering and search functionality
+
     function setupFilters() {
-      const searchInput = document.getElementById("searchInput");
-      const roleFilter = document.getElementById("roleFilter");
-      
-      // Add event listeners
-      searchInput.addEventListener("input", applyFilters);
-      roleFilter.addEventListener("change", applyFilters);
-      
-      // Set up pagination handlers
+      document.getElementById("searchInput").addEventListener("input", applyFilters);
+      document.getElementById("roleFilter").addEventListener("change", applyFilters);
       document.getElementById("prevPage").addEventListener("click", () => {
         if (state.currentPage > 1) {
           state.currentPage--;
           renderUsers();
-          // Scroll to top of user list
-          document.getElementById("users").scrollIntoView({ behavior: "smooth" });
         }
       });
-      
       document.getElementById("nextPage").addEventListener("click", () => {
         const totalPages = Math.ceil(state.filteredUsers.length / state.itemsPerPage);
         if (state.currentPage < totalPages) {
           state.currentPage++;
           renderUsers();
-          // Scroll to top of user list
-          document.getElementById("users").scrollIntoView({ behavior: "smooth" });
         }
       });
-      
-      // Setup refresh button
-      document.getElementById("refreshButton").addEventListener("click", () => {
-        loadUsers();
-      });
+      document.getElementById("refreshButton").addEventListener("click", loadUsers);
     }
-    
-    // Apply filters based on search input and role selection
+
     function applyFilters() {
       const searchTerm = document.getElementById("searchInput").value.toLowerCase();
-      const roleFilter = document.getElementById("roleFilter").value.toLowerCase();
-      
-      // Filter the users based on search term and role
+      const role = document.getElementById("roleFilter").value.toLowerCase();
       state.filteredUsers = state.users.filter(user => {
-        const email = (user.email || '').toLowerCase();
-        const role = (user.Role || '').toLowerCase();
-        
-        const matchesSearch = !searchTerm || email.includes(searchTerm);
-        const matchesRole = !roleFilter || role === roleFilter;
-        
-        return matchesSearch && matchesRole;
+        return (!searchTerm || user.email.toLowerCase().includes(searchTerm)) &&
+               (!role || (user.Role || '').toLowerCase() === role);
       });
-      
-      // Reset to first page and re-render
       state.currentPage = 1;
       renderUsers();
     }
-    
-    // Initialize with automatic load when DOM is ready
+
     document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
-  
-  <style>
-    /* Base styles */
-    body {
-      background-color: #111;
-      color: #eee;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    
-    .container {
-      width: 100%;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2rem;
-      box-sizing: border-box;
-    }
-    
-    h1 {
-      text-align: center;
-      color: #00e6b8;
-      margin-bottom: 2rem;
-      font-size: 2.5rem;
-    }
-    
-    /* Centered table container */
-    .table-container {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      margin: 0 auto;
-    }
-    
-    /* Filter and controls */
-    .filter-container {
-      background-color: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      border: 1px solid #333;
-    }
-    
-    .search-filters {
-      display: flex;
-      justify-content: space-between;
-      gap: 2rem;
-    }
-    
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    
-    .filter-group:first-child {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .search-input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background-color: #222;
-      color: #fff;
-      margin-top: 0.5rem;
-      font-size: 16px;
-    }
-    
-    .role-select {
-      width: 180px;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background-color: #222;
-      color: #fff;
-      margin-top: 0.5rem;
-      font-size: 16px;
-    }
-    
-    .search-input:focus,
-    .role-select:focus {
-      border-color: #00e6b8;
-      outline: none;
-      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
-    }
-    
-    /* Table styles */
-    .fancy-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
-    }
-    
-    .fancy-table thead tr {
-      background-color: #00a080;
-      color: #ffffff;
-      text-align: left;
-      font-weight: bold;
-    }
-    
-    .fancy-table th,
-    .fancy-table td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 250px;
-    }
-    
-    .fancy-table tbody tr {
-      border-bottom: 1px solid #333;
-      transition: background-color 0.3s;
-    }
-    
-    .fancy-table tbody tr:nth-of-type(even) {
-      background-color: #1a1a1a;
-    }
-    
-    .fancy-table tbody tr:last-of-type {
-      border-bottom: 2px solid #00a080;
-    }
-    
-    .fancy-table tbody tr:hover {
-      background-color: #222;
-      color: #00e6b8;
-    }
-    
-    /* Column highlight */
-    .fancy-table th:nth-child(1), .fancy-table td:nth-child(1) { color: #00e6b8; } /* ID */
-    .fancy-table th:nth-child(2), .fancy-table td:nth-child(2) { color: #00e6b8; } /* Email */
-    .fancy-table th:nth-child(7), .fancy-table td:nth-child(7) { color: #00e6b8; } /* Role */
-    
-    /* Status badges */
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      text-align: center;
-    }
-    
-    .badge.success {
-      background-color: rgba(0, 230, 184, 0.2);
-      color: #00e6b8;
-      border: 1px solid #00e6b8;
-    }
-    
-    .badge.warning {
-      background-color: rgba(255, 193, 7, 0.2);
-      color: #ffc107;
-      border: 1px solid #ffc107;
-    }
-    
-    .badge.danger {
-      background-color: rgba(255, 69, 58, 0.2);
-      color: #ff453a;
-      border: 1px solid #ff453a;
-    }
-    
-    /* Pagination controls */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 1rem 0;
-      gap: 1rem;
-    }
-    
-    .pagination-button {
-      padding: 8px 15px;
-    }
-    
-    .pagination-button:disabled {
-      background-color: #333;
-      cursor: not-allowed;
-      opacity: 0.5;
-      box-shadow: none;
-    }
-    
-    .page-info {
-      font-size: 0.9rem;
-      color: #aaa;
-    }
-    
-    /* Other UI elements */
-    .no-results {
-      text-align: center;
-      padding: 2rem !important;
-      font-style: italic;
-      color: #aaa;
-    }
-    
-    .hidden {
-      display: none;
-    }
-    
-    .button-container {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-    
-    .button {
-      background-color: #00e6b8;
-      color: black;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 1rem;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
-    }
-    
-    .button:hover {
-      background-color: #00ffc8;
-      box-shadow: 0 0 12px #00ffc8, 0 0 20px #00ffc8;
-    }
-    
-    .spinner {
-      border: 4px solid rgba(0, 230, 184, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid #00e6b8;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 2rem auto;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    /* Responsive layout */
-    @media (max-width: 767px) {
-      .container {
-        padding: 1rem;
-      }
-      
-      .search-filters {
-        flex-direction: column;
-        gap: 1rem;
-      }
-      
-      .filter-group {
-        width: 100%;
-      }
-      
-      .role-select {
-        width: 100%;
-      }
-      
-      .button-container {
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .button {
-        width: 100%;
-      }
-      
-      .fancy-table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-      
-      .fancy-table thead {
-        display: none;
-      }
-      
-      .fancy-table, 
-      .fancy-table tbody, 
-      .fancy-table tr, 
-      .fancy-table td {
-        display: block;
-        width: 100%;
-      }
-      
-      .fancy-table tr {
-        margin-bottom: 15px;
-        border: 1px solid #333;
-        border-radius: 5px;
-      }
-      
-      .fancy-table td {
-        text-align: right;
-        padding-left: 50%;
-        position: relative;
-        white-space: normal;
-      }
-      
-      .fancy-table td:before {
-        content: attr(data-label);
-        position: absolute;
-        left: 0;
-        width: 45%;
-        padding-left: 15px;
-        font-weight: bold;
-        text-align: left;
-      }
-    }
-  </style>
 </body>
 </html>
