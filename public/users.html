@@ -5,12 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Security headers -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-  <!-- Cache control -->
+  <!-- Only keep the cache control headers which are safe in meta tags -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -117,32 +112,35 @@
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
       
-      // Fetch user data from secure API
+      // Fetch user data from the API
       fetch('/api/users', {
-        credentials: 'include',
+        method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
-        }
+        },
+        credentials: 'include'
       })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(userData => {
-          state.users = userData;
-          state.filteredUsers = [...userData];
-          state.loaded = true;
-          
-          // Render and setup
-          renderUsers();
-          setupFilters();
-        })
-        .catch(error => {
-          target.innerHTML = `<div class="error-message">Error loading users: ${sanitizeHtml(error.message)}</div>`;
-        });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(userData => {
+        // Store the user data in state
+        state.users = userData;
+        state.filteredUsers = [...userData];
+        state.loaded = true;
+        
+        // Render and setup
+        renderUsers();
+        setupFilters();
+      })
+      .catch(error => {
+        console.error('Error loading users:', error);
+        target.innerHTML = `<div class="error-message">Error loading users: ${sanitizeHtml(error.message)}</div>`;
+      });
     }
     
     // Render users with pagination
@@ -177,7 +175,7 @@
       const table = document.createElement("table");
       table.className = "fancy-table";
       
-      // Table header - SECURITY ENHANCED VERSION
+      // Table header
       const thead = document.createElement("thead");
       thead.innerHTML = `
         <tr>
@@ -216,7 +214,7 @@
             '<span class="badge warning">Disabled</span>';
           const lastLogin = formatDate(user.lastLogin);
           const passwordAge = getPasswordAge(user.passwordLastChanged);
-          const role = sanitizeHtml(user.role || '–');
+          const role = sanitizeHtml(user.Role || user.role || '–');
           
           tr.innerHTML = `
             <td data-label="ID">${id}</td>
@@ -283,7 +281,7 @@
       // Filter the users based on search term and role
       state.filteredUsers = state.users.filter(user => {
         const email = (user.email || '').toLowerCase();
-        const role = (user.role || '').toLowerCase();
+        const role = (user.Role || user.role || '').toLowerCase();
         
         const matchesSearch = !searchTerm || email.includes(searchTerm);
         const matchesRole = !roleFilter || role === roleFilter;
@@ -296,7 +294,7 @@
       renderUsers();
     }
     
-    // Initialize when DOM is ready
+    // Initialize with automatic load when DOM is ready
     document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
 </body>
