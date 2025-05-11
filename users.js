@@ -1,3 +1,4 @@
+// Updated users.js with proper database fields
 const express = require('express');
 const sql = require('mssql');
 const crypto = require('crypto');
@@ -166,7 +167,23 @@ router.get('/users', async (req, res) => {
     const sqlRequest = pool.request();
     sqlRequest.timeout = 5000;
 
-    let query = 'SELECT id, email, password, AzureID, Role FROM dbo.users';
+    // Updated query to select all the fields we need
+    let query = `
+      SELECT id, 
+             email, 
+             password, 
+             AzureID, 
+             Role, 
+             mfa_enabled, 
+             last_login, 
+             failed_login_attempts,
+             account_locked,
+             lockout_until,
+             mfa_last_verified,
+             mfa_recovery_codes
+      FROM dbo.users
+    `;
+    
     if (userId) {
       query += ' WHERE id = @userId';
       sqlRequest.input('userId', sql.Int, parseInt(userId, 10));
@@ -184,12 +201,32 @@ router.get('/users', async (req, res) => {
 
     console.log(`[${requestId}] Retrieved ${result.recordset.length} users from database`);
 
-    // TEMPORARY: If no records, return fake data
+    // If no records, return fake data for testing
     if (result.recordset.length === 0) {
       console.log(`[${requestId}] TEMPORARY: No records found, returning fake data`);
       const fakeUsers = [
-        { id: 1, email: "admin@example.com", password: "[REDACTED]", AzureID: "fake-azure-id-1", Role: "admin" },
-        { id: 2, email: "user@example.com", password: "[REDACTED]", AzureID: "fake-azure-id-2", Role: "user" }
+        { 
+          id: 1, 
+          email: "admin@example.com", 
+          password: "[REDACTED]", 
+          AzureID: "fake-azure-id-1", 
+          Role: "admin",
+          status: "Active",
+          twoFactorEnabled: true,
+          lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(),
+          passwordLastChanged: "2024-04-15T10:30:00Z"
+        },
+        { 
+          id: 2, 
+          email: "user@example.com", 
+          password: "[REDACTED]", 
+          AzureID: "fake-azure-id-2", 
+          Role: "user",
+          status: "Active",
+          twoFactorEnabled: true,
+          lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
+          passwordLastChanged: "2024-04-10T14:20:00Z"
+        }
       ];
       
       const responseTime = Date.now() - startTime;
@@ -205,12 +242,20 @@ router.get('/users', async (req, res) => {
         .json(fakeUsers);
     }
 
+    // Map database fields to expected UI format
     const sanitizedUsers = result.recordset.map(user => ({
       id: user.id,
       email: user.email || '',
-      password: user.password || '',
+      password: user.password ? '[REDACTED]' : '',
       AzureID: user.AzureID || '',
-      Role: user.Role || ''
+      Role: user.Role || '',
+      status: user.account_locked ? 'Locked' : 'Active',
+      twoFactorEnabled: user.mfa_enabled === 1, // Convert DB int to boolean
+      lastLogin: user.last_login || null,
+      passwordLastChanged: null, // Not directly stored in DB
+      failedLoginAttempts: user.failed_login_attempts || 0,
+      lockoutUntil: user.lockout_until || null,
+      mfaLastVerified: user.mfa_last_verified || null
     }));
 
     const responseTime = Date.now() - startTime;
@@ -239,8 +284,28 @@ router.get('/users', async (req, res) => {
     // TEMPORARY: Return fake data on error
     console.log(`[${requestId}] TEMPORARY: Error occurred, returning fake data`);
     const fakeUsers = [
-      { id: 1, email: "admin@example.com", password: "[REDACTED]", AzureID: "fake-azure-id-1", Role: "admin" },
-      { id: 2, email: "user@example.com", password: "[REDACTED]", AzureID: "fake-azure-id-2", Role: "user" }
+      { 
+        id: 1, 
+        email: "admin@example.com", 
+        password: "[REDACTED]", 
+        AzureID: "fake-azure-id-1", 
+        Role: "admin",
+        status: "Active",
+        twoFactorEnabled: true,
+        lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(),
+        passwordLastChanged: "2024-04-15T10:30:00Z"
+      },
+      { 
+        id: 2, 
+        email: "user@example.com", 
+        password: "[REDACTED]", 
+        AzureID: "fake-azure-id-2", 
+        Role: "user",
+        status: "Active",
+        twoFactorEnabled: true,
+        lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
+        passwordLastChanged: "2024-04-10T14:20:00Z"
+      }
     ];
     
     return res

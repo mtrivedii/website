@@ -69,43 +69,97 @@
       debug: true // Enable debug mode
     };
     
-    // Sample backup data in case API fails
+    // Sample backup data that matches your database structure
     const userData = [
       { 
         id: 1, 
         email: "maanit49@gmail.com", 
+        password: "[REDACTED]",
+        AzureID: null,
+        Role: "",
         status: "Active",
         twoFactorEnabled: false,
         lastLogin: null,
-        passwordLastChanged: "2023-11-15T10:30:00Z",
-        Role: ""
+        passwordLastChanged: null,
+        mfa_enabled: 0,
+        last_login: null,
+        failed_login_attempts: 0,
+        account_locked: 0
       },
       { 
         id: 7, 
         email: "StudentAdmin@fictproftaak35.onmicrosoft.com", 
+        password: "[REDACTED]",
+        AzureID: "fcd17675-4bc1-4b31-96de-851adb792cb1",
+        Role: "admin",
         status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(), // 3 days ago
+        twoFactorEnabled: false,
+        lastLogin: "2023-07-21T12:34:56Z",
         passwordLastChanged: "2024-03-12T14:20:00Z",
-        Role: "admin"
+        mfa_enabled: 0,
+        last_login: "2023-07-21T12:34:56Z", 
+        failed_login_attempts: 0,
+        account_locked: 0
       },
       { 
         id: 9, 
         email: "security.officer@example.com", 
+        password: "[REDACTED]",
+        AzureID: "azure-id-678901",
+        Role: "admin",
         status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(), // 1 day ago
-        passwordLastChanged: "2024-01-20T09:15:00Z",
-        Role: "admin"
+        twoFactorEnabled: false,
+        lastLogin: null,
+        passwordLastChanged: null,
+        mfa_enabled: 0,
+        last_login: null,
+        failed_login_attempts: 0,
+        account_locked: 0
       },
       { 
         id: 10, 
         email: "marketing.director@example.com", 
+        password: "[REDACTED]",
+        AzureID: "azureid3",
+        Role: "user",
         status: "Active",
         twoFactorEnabled: false,
-        lastLogin: new Date(Date.now() - 5*24*60*60*1000).toISOString(), // 5 days ago
-        passwordLastChanged: "2024-02-10T16:45:00Z",
-        Role: "user"
+        lastLogin: "2025-01-10T09:23:45Z",
+        passwordLastChanged: null,
+        mfa_enabled: 0,
+        last_login: "2025-01-10T09:23:45Z",
+        failed_login_attempts: 0,
+        account_locked: 0
+      },
+      { 
+        id: 11, 
+        email: "data.analyst@example.com", 
+        password: "[REDACTED]",
+        AzureID: "azure-id-890123",
+        Role: "user",
+        status: "Active",
+        twoFactorEnabled: false,
+        lastLogin: null,
+        passwordLastChanged: null,
+        mfa_enabled: 0,
+        last_login: null,
+        failed_login_attempts: 0,
+        account_locked: 0
+      },
+      { 
+        id: 12, 
+        email: "ceo@example.com", 
+        password: "[REDACTED]",
+        AzureID: "azure-id-901234",
+        Role: "admin",
+        status: "Active",
+        twoFactorEnabled: false,
+        lastLogin: null,
+        passwordLastChanged: null,
+        mfa_enabled: 0,
+        last_login: null,
+        failed_login_attempts: 0,
+        account_locked: 0
       }
     ];
     
@@ -217,7 +271,10 @@
         return response.json();
       })
       .then(data => {
-        debugLog('API data parsed', { recordCount: data.length });
+        debugLog('API data parsed', { 
+          recordCount: data.length,
+          firstRecord: data.length > 0 ? data[0] : null
+        });
         
         // Use the data from API
         state.users = data;
@@ -252,7 +309,7 @@
       });
     }
     
-    // Render users with pagination
+    // Render users with pagination - updated for database fields
     function renderUsers() {
       if (!state.loaded) return;
       
@@ -320,22 +377,35 @@
         currentPageUsers.forEach(user => {
           const tr = document.createElement("tr");
           
-          // Sanitize all data to prevent XSS
+          // Sanitize and prepare all data
           const id = sanitizeHtml(user.id);
           const email = sanitizeHtml(user.email);
-          const status = sanitizeHtml(user.status || 'Unknown');
-          const twoFA = user.twoFactorEnabled ? 
+          
+          // Get status - check for explicit status or derive it
+          let status = user.status || (user.account_locked ? 'Locked' : 'Active');
+          if (status === 'Unknown') status = 'Active'; // Default to Active if unknown
+          
+          // Get 2FA status - check both fields that might indicate 2FA
+          const twoFA = (user.twoFactorEnabled || user.mfa_enabled === 1) ? 
             '<span class="badge success">Enabled</span>' : 
             '<span class="badge warning">Disabled</span>';
-          const lastLogin = formatDate(user.lastLogin);
-          const passwordAge = getPasswordAge(user.passwordLastChanged);
+          
+          // Get last login time
+          const lastLogin = formatDate(user.lastLogin || user.last_login);
+          
+          // Password age might not be directly stored - use fallback logic
+          const passwordLastChanged = user.passwordLastChanged || null;
+          const passwordAge = passwordLastChanged ? getPasswordAge(passwordLastChanged) : 'Unknown';
+          
+          // User role
           const role = sanitizeHtml(user.Role || '–');
           
+          // Create row with all data
           tr.innerHTML = `
             <td data-label="ID">${id}</td>
             <td data-label="Email">${email}</td>
             <td data-label="Status">
-              <span class="badge ${status === 'Active' ? 'success' : 'danger'}">${status}</span>
+              <span class="badge ${status.toLowerCase() === 'active' ? 'success' : 'danger'}">${status}</span>
             </td>
             <td data-label="2FA">${twoFA}</td>
             <td data-label="Last Login">${lastLogin}</td>
@@ -424,6 +494,10 @@
     // Initialize with automatic load when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
       debugLog('DOM loaded, initializing page');
+      // Show debug info panel right away if in debug mode
+      if (state.debug) {
+        document.getElementById('debug-info').style.display = 'block';
+      }
       loadUsers();
     });
   </script>
@@ -777,4 +851,3 @@
   </style>
 </body>
 </html>
-    }
