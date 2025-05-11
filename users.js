@@ -1,4 +1,5 @@
-// users.js - Updated to avoid crypto dependency
+// users.js - Secure, production-ready Express route for /api/users
+
 const express = require('express');
 const sql = require('mssql');
 const {
@@ -12,16 +13,17 @@ const {
 
 const router = express.Router();
 
-// Generate a simple request ID without crypto
+// Simple request ID generator (no crypto)
 function generateRequestId() {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 10);
   return `${timestamp}-${randomPart}`;
 }
 
-// SQL connection pooling with enhanced security
+// SQL connection pooling
 let sqlPool = null;
-const poolConnectTimeout = 30000; // 30 seconds timeout
+const poolConnectTimeout = 30000; // 30 seconds
+
 async function getSqlPool() {
   if (!sqlPool) {
     try {
@@ -53,7 +55,6 @@ async function getSqlPool() {
 }
 
 router.get('/users', async (req, res) => {
-  // Use our simple ID generator instead of crypto
   const requestId = generateRequestId();
   const startTime = Date.now();
 
@@ -64,8 +65,8 @@ router.get('/users', async (req, res) => {
     req.ip ||
     'unknown';
 
-  // Rate limiting
-  const rateLimit = checkRateLimit(`users:${clientIp}`, 20, 60000); // 20 requests per minute
+  // Rate limiting (20 requests per minute)
+  const rateLimit = checkRateLimit(`users:${clientIp}`, 20, 60000);
   if (rateLimit.limited) {
     logSecurityEvent('RateLimitExceeded', {
       endpoint: '/api/users',
@@ -190,16 +191,19 @@ router.get('/users', async (req, res) => {
     const sqlRequest = pool.request();
     sqlRequest.timeout = 5000; // 5 second timeout
 
-    // SECURITY IMPROVEMENT: Only select necessary, non-sensitive fields
+    // Only select non-sensitive fields
     let query = `
       SELECT 
         id, 
         email, 
-        Role as role, 
-        status, 
-        mfa_enabled as twoFactorEnabled,
-        last_login as lastLogin,
-        password_last_changed as passwordLastChanged
+        AzureID, 
+        Role, 
+        mfa_enabled, 
+        last_login, 
+        failed_login_attempts, 
+        account_locked, 
+        lockout_until, 
+        mfa_last_verified
       FROM dbo.users
     `;
 
@@ -209,7 +213,6 @@ router.get('/users', async (req, res) => {
       sqlRequest.input('userId', sql.Int, parseInt(userId, 10));
     }
 
-    // Principle of least privilege - limit results and sort
     query += ' ORDER BY id ASC OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY';
 
     // Execute the query with timeout handling
@@ -228,12 +231,15 @@ router.get('/users', async (req, res) => {
     // Sanitize user data before returning
     const sanitizedUsers = result.recordset.map(user => ({
       id: user.id,
-      email: user.email || '',
-      role: user.role || '',
-      status: user.status || 'Inactive',
-      twoFactorEnabled: !!user.twoFactorEnabled,
-      lastLogin: user.lastLogin,
-      passwordLastChanged: user.passwordLastChanged
+      email: user.email,
+      AzureID: user.AzureID,
+      role: user.Role,
+      mfaEnabled: !!user.mfa_enabled,
+      lastLogin: user.last_login,
+      failedLoginAttempts: user.failed_login_attempts,
+      accountLocked: !!user.account_locked,
+      lockoutUntil: user.lockout_until,
+      mfaLastVerified: user.mfa_last_verified
     }));
 
     // Add response time header for performance monitoring
@@ -263,8 +269,6 @@ router.get('/users', async (req, res) => {
       .json(sanitizedUsers);
 
   } catch (err) {
-    // Check if auth-utilities has sanitizeOutput function
-    // If not, make sure we don't reference it
     const securityEventId = logSecurityEvent('DatabaseError', {
       endpoint: '/api/users',
       errorType: err.name,
