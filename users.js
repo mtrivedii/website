@@ -191,7 +191,7 @@ router.get('/users', async (req, res) => {
     const sqlRequest = pool.request();
     sqlRequest.timeout = 5000; // 5 second timeout
 
-    // Only select non-sensitive fields
+    // Only select non-sensitive fields that exist in your table
     let query = `
       SELECT 
         id, 
@@ -225,6 +225,7 @@ router.get('/users', async (req, res) => {
         )
       ]);
     } catch (queryError) {
+      console.error(`[${requestId}] SQL error:`, queryError);
       throw new Error(`Query execution error: ${queryError.message}`);
     }
 
