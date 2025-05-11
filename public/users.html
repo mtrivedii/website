@@ -6,7 +6,7 @@
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css">
   <!-- Security headers -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -50,12 +50,6 @@
       <a class="button" href="index.html">← Home</a>
       <button id="refreshButton" class="button">Refresh Data</button>
     </div>
-    
-    <!-- Added for debugging -->
-    <div id="debug-info" class="card" style="margin-top: 20px; text-align: left; display: none;">
-      <h3>Debug Information</h3>
-      <pre id="debug-data" style="white-space: pre-wrap; overflow-x: auto;"></pre>
-    </div>
   </div>
 
   <script>
@@ -65,103 +59,8 @@
       filteredUsers: [],
       currentPage: 1,
       itemsPerPage: 10,
-      loaded: false,
-      debug: true // Enable debug mode
+      loaded: false
     };
-    
-    // Sample backup data that matches your database structure
-    const userData = [
-      { 
-        id: 1, 
-        email: "maanit49@gmail.com", 
-        password: "[REDACTED]",
-        AzureID: null,
-        Role: "",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: null,
-        passwordLastChanged: null,
-        mfa_enabled: 0,
-        last_login: null,
-        failed_login_attempts: 0,
-        account_locked: 0
-      },
-      { 
-        id: 7, 
-        email: "StudentAdmin@fictproftaak35.onmicrosoft.com", 
-        password: "[REDACTED]",
-        AzureID: "fcd17675-4bc1-4b31-96de-851adb792cb1",
-        Role: "admin",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: "2023-07-21T12:34:56Z",
-        passwordLastChanged: "2024-03-12T14:20:00Z",
-        mfa_enabled: 0,
-        last_login: "2023-07-21T12:34:56Z", 
-        failed_login_attempts: 0,
-        account_locked: 0
-      },
-      { 
-        id: 9, 
-        email: "security.officer@example.com", 
-        password: "[REDACTED]",
-        AzureID: "azure-id-678901",
-        Role: "admin",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: null,
-        passwordLastChanged: null,
-        mfa_enabled: 0,
-        last_login: null,
-        failed_login_attempts: 0,
-        account_locked: 0
-      },
-      { 
-        id: 10, 
-        email: "marketing.director@example.com", 
-        password: "[REDACTED]",
-        AzureID: "azureid3",
-        Role: "user",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: "2025-01-10T09:23:45Z",
-        passwordLastChanged: null,
-        mfa_enabled: 0,
-        last_login: "2025-01-10T09:23:45Z",
-        failed_login_attempts: 0,
-        account_locked: 0
-      },
-      { 
-        id: 11, 
-        email: "data.analyst@example.com", 
-        password: "[REDACTED]",
-        AzureID: "azure-id-890123",
-        Role: "user",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: null,
-        passwordLastChanged: null,
-        mfa_enabled: 0,
-        last_login: null,
-        failed_login_attempts: 0,
-        account_locked: 0
-      },
-      { 
-        id: 12, 
-        email: "ceo@example.com", 
-        password: "[REDACTED]",
-        AzureID: "azure-id-901234",
-        Role: "admin",
-        status: "Active",
-        twoFactorEnabled: false,
-        lastLogin: null,
-        passwordLastChanged: null,
-        mfa_enabled: 0,
-        last_login: null,
-        failed_login_attempts: 0,
-        account_locked: 0
-      }
-    ];
     
     // Sanitize string to prevent XSS
     function sanitizeHtml(str) {
@@ -211,105 +110,42 @@
       }
     }
     
-    // Add debug log function
-    function debugLog(message, data) {
-      if (state.debug) {
-        console.log(`[DEBUG] ${message}`, data);
-        
-        // Also update debug panel if it exists
-        const debugPanel = document.getElementById('debug-info');
-        const debugData = document.getElementById('debug-data');
-        
-        if (debugPanel && debugData) {
-          debugPanel.style.display = 'block';
-          
-          let debugContent = '';
-          if (typeof data === 'object') {
-            try {
-              debugContent = `${message}\n${JSON.stringify(data, null, 2)}`;
-            } catch (e) {
-              debugContent = `${message}\nUnable to stringify object: ${e.message}`;
-            }
-          } else {
-            debugContent = `${message}\n${data}`;
-          }
-          
-          // Append to debug panel
-          debugData.textContent += debugContent + '\n\n';
-        }
-      }
-    }
-    
     // Initialize the data and render the table
     function loadUsers() {
       const target = document.getElementById("users");
-      debugLog('Loading users data...', {timestamp: new Date().toISOString()});
       
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
       
-      // Fetch users from API with proper error handling
+      // Fetch user data from secure API
       fetch('/api/users', {
-        method: 'GET',
+        credentials: 'include',
         headers: {
-          'Accept': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
-        },
-        credentials: 'include'
-      })
-      .then(response => {
-        debugLog('API response received', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries([...response.headers.entries()])
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API returned status: ${response.status} ${response.statusText}`);
         }
-        return response.json();
       })
-      .then(data => {
-        debugLog('API data parsed', { 
-          recordCount: data.length,
-          firstRecord: data.length > 0 ? data[0] : null
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(userData => {
+          state.users = userData;
+          state.filteredUsers = [...userData];
+          state.loaded = true;
+          
+          // Render and setup
+          renderUsers();
+          setupFilters();
+        })
+        .catch(error => {
+          target.innerHTML = `<div class="error-message">Error loading users: ${sanitizeHtml(error.message)}</div>`;
         });
-        
-        // Use the data from API
-        state.users = data;
-        state.filteredUsers = [...data];
-        state.loaded = true;
-        
-        // Render and setup
-        renderUsers();
-        setupFilters();
-      })
-      .catch(error => {
-        debugLog('API error occurred', { error: error.message, stack: error.stack });
-        console.error('Error loading users:', error);
-        
-        // Show error message
-        target.innerHTML = `
-          <div class="error-message">
-            <h3>Error loading data</h3>
-            <p>${sanitizeHtml(error.message)}</p>
-            <p>Using sample data as fallback.</p>
-          </div>
-        `;
-        
-        // Use sample data as fallback
-        state.users = userData;
-        state.filteredUsers = [...userData];
-        state.loaded = true;
-        
-        // Still render with sample data
-        renderUsers();
-        setupFilters();
-      });
     }
     
-    // Render users with pagination - updated for database fields
+    // Render users with pagination
     function renderUsers() {
       if (!state.loaded) return;
       
@@ -318,12 +154,6 @@
       const pageInfo = document.getElementById("pageInfo");
       const prevButton = document.getElementById("prevPage");
       const nextButton = document.getElementById("nextPage");
-      
-      debugLog('Rendering users table', { 
-        totalUsers: state.filteredUsers.length,
-        currentPage: state.currentPage,
-        itemsPerPage: state.itemsPerPage
-      });
       
       // Calculate pagination
       const totalPages = Math.ceil(state.filteredUsers.length / state.itemsPerPage);
@@ -347,7 +177,7 @@
       const table = document.createElement("table");
       table.className = "fancy-table";
       
-      // Table header
+      // Table header - SECURITY ENHANCED VERSION
       const thead = document.createElement("thead");
       thead.innerHTML = `
         <tr>
@@ -377,35 +207,22 @@
         currentPageUsers.forEach(user => {
           const tr = document.createElement("tr");
           
-          // Sanitize and prepare all data
+          // Sanitize all data to prevent XSS
           const id = sanitizeHtml(user.id);
           const email = sanitizeHtml(user.email);
-          
-          // Get status - check for explicit status or derive it
-          let status = user.status || (user.account_locked ? 'Locked' : 'Active');
-          if (status === 'Unknown') status = 'Active'; // Default to Active if unknown
-          
-          // Get 2FA status - check both fields that might indicate 2FA
-          const twoFA = (user.twoFactorEnabled || user.mfa_enabled === 1) ? 
+          const status = sanitizeHtml(user.status || 'Unknown');
+          const twoFA = user.twoFactorEnabled ? 
             '<span class="badge success">Enabled</span>' : 
             '<span class="badge warning">Disabled</span>';
+          const lastLogin = formatDate(user.lastLogin);
+          const passwordAge = getPasswordAge(user.passwordLastChanged);
+          const role = sanitizeHtml(user.role || '–');
           
-          // Get last login time
-          const lastLogin = formatDate(user.lastLogin || user.last_login);
-          
-          // Password age might not be directly stored - use fallback logic
-          const passwordLastChanged = user.passwordLastChanged || null;
-          const passwordAge = passwordLastChanged ? getPasswordAge(passwordLastChanged) : 'Unknown';
-          
-          // User role
-          const role = sanitizeHtml(user.Role || '–');
-          
-          // Create row with all data
           tr.innerHTML = `
             <td data-label="ID">${id}</td>
             <td data-label="Email">${email}</td>
             <td data-label="Status">
-              <span class="badge ${status.toLowerCase() === 'active' ? 'success' : 'danger'}">${status}</span>
+              <span class="badge ${status === 'Active' ? 'success' : 'danger'}">${status}</span>
             </td>
             <td data-label="2FA">${twoFA}</td>
             <td data-label="Last Login">${lastLogin}</td>
@@ -421,16 +238,12 @@
       // Update DOM
       target.innerHTML = "";
       target.appendChild(table);
-      
-      debugLog('Table rendered', { rows: currentPageUsers.length });
     }
     
     // Set up filtering and search functionality
     function setupFilters() {
       const searchInput = document.getElementById("searchInput");
       const roleFilter = document.getElementById("roleFilter");
-      
-      debugLog('Setting up filters', { searchInput: !!searchInput, roleFilter: !!roleFilter });
       
       // Add event listeners
       searchInput.addEventListener("input", applyFilters);
@@ -458,7 +271,6 @@
       
       // Setup refresh button
       document.getElementById("refreshButton").addEventListener("click", () => {
-        debugLog('Refresh button clicked');
         loadUsers();
       });
     }
@@ -468,12 +280,10 @@
       const searchTerm = document.getElementById("searchInput").value.toLowerCase();
       const roleFilter = document.getElementById("roleFilter").value.toLowerCase();
       
-      debugLog('Applying filters', { searchTerm, roleFilter });
-      
       // Filter the users based on search term and role
       state.filteredUsers = state.users.filter(user => {
         const email = (user.email || '').toLowerCase();
-        const role = (user.Role || '').toLowerCase();
+        const role = (user.role || '').toLowerCase();
         
         const matchesSearch = !searchTerm || email.includes(searchTerm);
         const matchesRole = !roleFilter || role === roleFilter;
@@ -481,373 +291,13 @@
         return matchesSearch && matchesRole;
       });
       
-      debugLog('Filter results', { 
-        totalUsers: state.users.length,
-        filteredUsers: state.filteredUsers.length 
-      });
-      
       // Reset to first page and re-render
       state.currentPage = 1;
       renderUsers();
     }
     
-    // Initialize with automatic load when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
-      debugLog('DOM loaded, initializing page');
-      // Show debug info panel right away if in debug mode
-      if (state.debug) {
-        document.getElementById('debug-info').style.display = 'block';
-      }
-      loadUsers();
-    });
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
-  
-  <style>
-    /* Base styles */
-    body {
-      background-color: #111;
-      color: #eee;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    
-    .container {
-      width: 100%;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2rem;
-      box-sizing: border-box;
-    }
-    
-    h1 {
-      text-align: center;
-      color: #00e6b8;
-      margin-bottom: 2rem;
-      font-size: 2.5rem;
-    }
-    
-    /* Filter container */
-    .filter-container {
-      background-color: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      border: 1px solid #333;
-    }
-    
-    .search-filters {
-      display: flex;
-      justify-content: space-between;
-      gap: 2rem;
-    }
-    
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    
-    .filter-group:first-child {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .search-input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background-color: #222;
-      color: #fff;
-      margin-top: 0.5rem;
-      font-size: 16px;
-    }
-    
-    .role-select {
-      width: 180px;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background-color: #222;
-      color: #fff;
-      margin-top: 0.5rem;
-      font-size: 16px;
-    }
-    
-    .search-input:focus,
-    .role-select:focus {
-      border-color: #00e6b8;
-      outline: none;
-      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
-    }
-    
-    /* Table styles */
-    .fancy-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
-    }
-    
-    .fancy-table thead tr {
-      background-color: #00a080;
-      color: #ffffff;
-      text-align: left;
-      font-weight: bold;
-    }
-    
-    .fancy-table th,
-    .fancy-table td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 250px;
-    }
-    
-    .fancy-table tbody tr {
-      border-bottom: 1px solid #333;
-      transition: background-color 0.3s;
-    }
-    
-    .fancy-table tbody tr:nth-of-type(even) {
-      background-color: #1a1a1a;
-    }
-    
-    .fancy-table tbody tr:last-of-type {
-      border-bottom: 2px solid #00a080;
-    }
-    
-    .fancy-table tbody tr:hover {
-      background-color: #222;
-      color: #00e6b8;
-    }
-    
-    /* Column highlight */
-    .fancy-table th:nth-child(1), .fancy-table td:nth-child(1) { color: #00e6b8; } /* ID */
-    .fancy-table th:nth-child(2), .fancy-table td:nth-child(2) { color: #00e6b8; } /* Email */
-    .fancy-table th:nth-child(7), .fancy-table td:nth-child(7) { color: #00e6b8; } /* Role */
-    
-    /* Status badges */
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      text-align: center;
-    }
-    
-    .badge.success {
-      background-color: rgba(0, 230, 184, 0.2);
-      color: #00e6b8;
-      border: 1px solid #00e6b8;
-    }
-    
-    .badge.warning {
-      background-color: rgba(255, 193, 7, 0.2);
-      color: #ffc107;
-      border: 1px solid #ffc107;
-    }
-    
-    .badge.danger {
-      background-color: rgba(255, 69, 58, 0.2);
-      color: #ff453a;
-      border: 1px solid #ff453a;
-    }
-    
-    /* Pagination controls */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 1rem 0;
-      gap: 1rem;
-    }
-    
-    .pagination-button {
-      padding: 8px 15px;
-    }
-    
-    .pagination-button:disabled {
-      background-color: #333;
-      cursor: not-allowed;
-      opacity: 0.5;
-      box-shadow: none;
-    }
-    
-    .page-info {
-      font-size: 0.9rem;
-      color: #aaa;
-    }
-    
-    /* Other UI elements */
-    .no-results {
-      text-align: center;
-      padding: 2rem !important;
-      font-style: italic;
-      color: #aaa;
-    }
-    
-    .hidden {
-      display: none;
-    }
-    
-    .button-container {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-    
-    .button {
-      background-color: #00e6b8;
-      color: black;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 1rem;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 8px rgba(0, 230, 184, 0.5);
-    }
-    
-    .button:hover {
-      background-color: #00ffc8;
-      box-shadow: 0 0 12px #00ffc8, 0 0 20px #00ffc8;
-    }
-    
-    .spinner {
-      border: 4px solid rgba(0, 230, 184, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid #00e6b8;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 2rem auto;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    /* Error message */
-    .error-message {
-      background-color: rgba(255, 0, 0, 0.1);
-      border: 1px solid rgba(255, 0, 0, 0.3);
-      padding: 1rem;
-      border-radius: 5px;
-      margin: 1rem 0;
-      color: #ff6b6b;
-    }
-    
-    /* Debug data styling */
-    #debug-info {
-      background-color: #000;
-      border: 1px solid #333;
-      padding: 10px;
-      margin-top: 20px;
-      border-radius: 4px;
-    }
-    
-    #debug-info h3 {
-      color: #00e6b8;
-      margin-top: 0;
-    }
-    
-    #debug-data {
-      background-color: #111;
-      color: #0f0;
-      font-family: monospace;
-      padding: 10px;
-      border-radius: 3px;
-      height: 200px;
-      overflow-y: auto;
-      font-size: 12px;
-    }
-    
-    /* Responsive layout */
-    @media (max-width: 767px) {
-      .container {
-        padding: 1rem;
-      }
-      
-      .search-filters {
-        flex-direction: column;
-        gap: 1rem;
-      }
-      
-      .filter-group {
-        width: 100%;
-      }
-      
-      .role-select {
-        width: 100%;
-      }
-      
-      .button-container {
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .button {
-        width: 100%;
-      }
-      
-      .fancy-table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-      
-      .fancy-table thead {
-        display: none;
-      }
-      
-      .fancy-table, 
-      .fancy-table tbody, 
-      .fancy-table tr, 
-      .fancy-table td {
-        display: block;
-        width: 100%;
-      }
-      
-      .fancy-table tr {
-        margin-bottom: 15px;
-        border: 1px solid #333;
-        border-radius: 5px;
-      }
-      
-      .fancy-table td {
-        text-align: right;
-        padding-left: 50%;
-        position: relative;
-        white-space: normal;
-      }
-      
-      .fancy-table td:before {
-        content: attr(data-label);
-        position: absolute;
-        left: 0;
-        width: 45%;
-        padding-left: 15px;
-        font-weight: bold;
-        text-align: left;
-      }
-    }
-  </style>
 </body>
 </html>
