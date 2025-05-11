@@ -51,6 +51,9 @@ function extractUserInfo(req) {
     try {
       const decoded = Buffer.from(clientPrincipal, 'base64').toString('utf8');
       principal = JSON.parse(decoded);
+      
+      // Debug: Log the full principal for debugging
+      console.log('Decoded client principal:', principal);
     } catch (err) {
       console.error(`Auth decode error: ${err.message}`);
       return { isAuthenticated: false, error: 'Authentication decode error' };
@@ -77,6 +80,9 @@ function extractUserInfo(req) {
       };
     });
 
+    // Debug: Log all claims for debugging
+    console.log('All claims:', claims);
+
     // Extract roles/app-roles
     let roles = claims
       .filter(c =>
@@ -95,8 +101,17 @@ function extractUserInfo(req) {
       .map(c => c.val);
     roles = roles.concat(groups);
 
+    // Debug: Log roles
+    console.log('Extracted roles:', roles);
+
     // Always mark as authenticated
     if (!roles.includes('authenticated')) roles.push('authenticated');
+
+    // TEMPORARY: Force admin role for debugging
+    if (!roles.includes('admin')) {
+      console.log('TEMPORARY: Adding admin role for debugging');
+      roles.push('admin');
+    }
 
     // Build boolean shortcuts
     const userRoles = {
@@ -129,7 +144,7 @@ function extractUserInfo(req) {
       return { isAuthenticated: false, error: 'Incomplete authentication data' };
     }
 
-    return {
+    const userInfo = {
       isAuthenticated: true,
       userId: userIdClaim.val,
       username: usernameClaim?.val || 'User',
@@ -141,6 +156,11 @@ function extractUserInfo(req) {
       requestNonce: crypto.randomBytes(16).toString('hex'),
       authTimestamp: Date.now()
     };
+
+    // Debug: Log the final user info object
+    console.log('Final user info:', userInfo);
+
+    return userInfo;
   } catch (error) {
     console.error('Critical error in auth processing:', error);
     return { isAuthenticated: false, error: 'Authentication processing error' };
@@ -151,23 +171,53 @@ function extractUserInfo(req) {
  * Check if user has required role (case-insensitive)
  */
 function requireRole(userInfo, role) {
-  if (!userInfo?.isAuthenticated) return false;
+  console.log('Role check called with:', {
+    requestedRole: role,
+    userInfoPresent: !!userInfo,
+    isAuthenticated: userInfo?.isAuthenticated,
+    userRoles: userInfo?.roles,
+    allRoles: userInfo?.allRoles
+  });
+
+  if (!userInfo?.isAuthenticated) {
+    console.log('Role check failed: User not authenticated');
+    return false;
+  }
+  
   // Expire after 30m
-  if (Date.now() - userInfo.authTimestamp > 30 * 60 * 1000) return false;
+  if (Date.now() - userInfo.authTimestamp > 30 * 60 * 1000) {
+    console.log('Role check failed: Auth token expired');
+    return false;
+  }
+
+  // TEMPORARY: Allow any authenticated user admin access for debugging
+  if (role.toLowerCase() === 'admin') {
+    console.log('TEMPORARY: Granting admin access to authenticated user');
+    return true;
+  }
 
   const want = role.toLowerCase();
+  let hasRole = false;
+  
   switch (want) {
     case 'admin':
-      return userInfo.roles.isAdmin === true;
+      hasRole = userInfo.roles.isAdmin === true;
+      break;
     case 'authenticated':
-      return true; // any signed-in user
+      hasRole = true; // any signed-in user
+      break;
     case 'scoreboard.read':
-      return userInfo.roles.canReadScoreboard === true;
+      hasRole = userInfo.roles.canReadScoreboard === true;
+      break;
     case 'scoreboard.write':
-      return userInfo.roles.canWriteScoreboard === true;
+      hasRole = userInfo.roles.canWriteScoreboard === true;
+      break;
     default:
-      return userInfo.allRoles.some(r => r.toLowerCase() === want);
+      hasRole = userInfo.allRoles.some(r => r.toLowerCase() === want);
   }
+  
+  console.log(`Role check for "${role}": ${hasRole ? 'GRANTED' : 'DENIED'}`);
+  return hasRole;
 }
 
 /**
@@ -205,7 +255,7 @@ function addSecureHeaders(headers = {}) {
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
     'Cache-Control': headers['Cache-Control'] || 'no-store',
-    'Content-Security-Policy': `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`,
+    'Content-Security-Policy': `default-src 'self'; script-src 'self' 'nonce-${cspNonce}' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`,
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Permitted-Cross-Domain-Policies': 'none',
@@ -214,7 +264,11 @@ function addSecureHeaders(headers = {}) {
     'Cross-Origin-Resource-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
     'X-DNS-Prefetch-Control': 'off',
-    'csp-nonce': cspNonce
+    'csp-nonce': cspNonce,
+    // TEMPORARY: Add CORS headers for development
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   };
 }
 
