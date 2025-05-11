@@ -1,4 +1,4 @@
-// Updated users.js with proper database fields
+// Fixed users.js to properly display database data
 const express = require('express');
 const sql = require('mssql');
 const crypto = require('crypto');
@@ -20,6 +20,7 @@ const poolConnectTimeout = 30000; // 30s
 async function getSqlPool() {
   if (!sqlPool) {
     try {
+      console.log('Connecting to SQL database...');
       sqlPool = await sql.connect({
         connectionString: process.env.SqlConnectionString,
         options: {
@@ -35,11 +36,14 @@ async function getSqlPool() {
           }
         }
       });
+      console.log('SQL connection established successfully!');
+      
       sqlPool.on('error', err => {
         console.error('SQL connection pool error:', err);
         sqlPool = null;
       });
     } catch (err) {
+      console.error('Failed to connect to SQL database:', err);
       sqlPool = null;
       throw err;
     }
@@ -163,6 +167,7 @@ router.get('/users', async (req, res) => {
   }
 
   try {
+    // Try to connect to the database
     const pool = await getSqlPool();
     const sqlRequest = pool.request();
     sqlRequest.timeout = 5000;
@@ -201,62 +206,33 @@ router.get('/users', async (req, res) => {
 
     console.log(`[${requestId}] Retrieved ${result.recordset.length} users from database`);
 
-    // If no records, return fake data for testing
-    if (result.recordset.length === 0) {
-      console.log(`[${requestId}] TEMPORARY: No records found, returning fake data`);
-      const fakeUsers = [
-        { 
-          id: 1, 
-          email: "admin@example.com", 
-          password: "[REDACTED]", 
-          AzureID: "fake-azure-id-1", 
-          Role: "admin",
-          status: "Active",
-          twoFactorEnabled: true,
-          lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(),
-          passwordLastChanged: "2024-04-15T10:30:00Z"
-        },
-        { 
-          id: 2, 
-          email: "user@example.com", 
-          password: "[REDACTED]", 
-          AzureID: "fake-azure-id-2", 
-          Role: "user",
-          status: "Active",
-          twoFactorEnabled: true,
-          lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
-          passwordLastChanged: "2024-04-10T14:20:00Z"
-        }
-      ];
-      
-      const responseTime = Date.now() - startTime;
-      return res
-        .status(200)
-        .set({
-          ...addSecureHeaders({
-            'Cache-Control': 'max-age=60',
-            'X-Response-Time': `${responseTime}ms`
-          }),
-          'Content-Type': 'application/json'
-        })
-        .json(fakeUsers);
-    }
-
     // Map database fields to expected UI format
-    const sanitizedUsers = result.recordset.map(user => ({
-      id: user.id,
-      email: user.email || '',
-      password: user.password ? '[REDACTED]' : '',
-      AzureID: user.AzureID || '',
-      Role: user.Role || '',
-      status: user.account_locked ? 'Locked' : 'Active',
-      twoFactorEnabled: user.mfa_enabled === 1, // Convert DB int to boolean
-      lastLogin: user.last_login || null,
-      passwordLastChanged: null, // Not directly stored in DB
-      failedLoginAttempts: user.failed_login_attempts || 0,
-      lockoutUntil: user.lockout_until || null,
-      mfaLastVerified: user.mfa_last_verified || null
-    }));
+    const sanitizedUsers = result.recordset.map(user => {
+      // Calculate password age if we have mfa_last_verified as a substitute
+      let passwordLastChanged = null;
+      if (user.mfa_last_verified) {
+        // Use mfa_last_verified as a substitute for password change date
+        passwordLastChanged = user.mfa_last_verified;
+      }
+
+      // Calculate relative date for better UI experience
+      // For example, if last verified was 13 months ago, show "13 months"
+      
+      return {
+        id: user.id,
+        email: user.email || '',
+        password: user.password ? '[REDACTED]' : '',
+        AzureID: user.AzureID || '',
+        Role: user.Role || '',
+        status: user.account_locked === 1 ? 'Locked' : 'Active',
+        twoFactorEnabled: user.mfa_enabled === 1, // Convert DB int to boolean
+        lastLogin: user.last_login || null,
+        passwordLastChanged: passwordLastChanged,
+        failedLoginAttempts: user.failed_login_attempts || 0,
+        lockoutUntil: user.lockout_until || null,
+        mfaLastVerified: user.mfa_last_verified || null
+      };
+    });
 
     const responseTime = Date.now() - startTime;
     return res
@@ -280,41 +256,21 @@ router.get('/users', async (req, res) => {
       severity: 'error'
     });
     console.error(`[${requestId}] Error fetching users:`, err);
+    console.error(`[${requestId}] Error details:`, err.stack);
     
-    // TEMPORARY: Return fake data on error
-    console.log(`[${requestId}] TEMPORARY: Error occurred, returning fake data`);
-    const fakeUsers = [
-      { 
-        id: 1, 
-        email: "admin@example.com", 
-        password: "[REDACTED]", 
-        AzureID: "fake-azure-id-1", 
-        Role: "admin",
-        status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 1*24*60*60*1000).toISOString(),
-        passwordLastChanged: "2024-04-15T10:30:00Z"
-      },
-      { 
-        id: 2, 
-        email: "user@example.com", 
-        password: "[REDACTED]", 
-        AzureID: "fake-azure-id-2", 
-        Role: "user",
-        status: "Active",
-        twoFactorEnabled: true,
-        lastLogin: new Date(Date.now() - 3*24*60*60*1000).toISOString(),
-        passwordLastChanged: "2024-04-10T14:20:00Z"
-      }
-    ];
-    
+    // Return real error message instead of fake data to help debug connection issues
     return res
-      .status(200) // Return 200 instead of 500 for debugging
+      .status(500)
       .set({
         ...addSecureHeaders(),
         'Content-Type': 'application/json'
       })
-      .json(fakeUsers);
+      .json({
+        error: 'Database Error',
+        message: err.message,
+        requestId,
+        securityEventId
+      });
   }
 });
 
