@@ -1,4 +1,4 @@
-// users.js - Secure, production-ready Express route for /api/users
+// users.js - Secure /api/users route for your table structure
 
 const express = require('express');
 const sql = require('mssql');
@@ -224,6 +224,8 @@ router.get('/users', async (req, res) => {
           setTimeout(() => reject(new Error('Query timeout')), 5000)
         )
       ]);
+      // Log result for debugging
+      // console.log('SQL result:', result);
     } catch (queryError) {
       console.error(`[${requestId}] SQL error:`, queryError);
       throw new Error(`Query execution error: ${queryError.message}`);
