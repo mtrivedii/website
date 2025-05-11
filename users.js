@@ -12,9 +12,9 @@ const {
 
 const router = express.Router();
 
-// SQL connection pooling
+// Connection pool
 let sqlPool = null;
-const poolConnectTimeout = 30000;
+const poolConnectTimeout = 30000; // 30s
 
 async function getSqlPool() {
   if (!sqlPool) {
@@ -34,12 +34,10 @@ async function getSqlPool() {
           }
         }
       });
-
       sqlPool.on('error', err => {
-        console.error('SQL pool error:', err);
+        console.error('SQL connection pool error:', err);
         sqlPool = null;
       });
-
     } catch (err) {
       sqlPool = null;
       throw err;
@@ -57,68 +55,95 @@ router.get('/users', async (req, res) => {
     req.ip ||
     'unknown';
 
+  // Rate limiting: 20 req/min per IP
   const rateLimit = checkRateLimit(`users:${clientIp}`, 20, 60000);
   if (rateLimit.limited) {
-    logSecurityEvent('RateLimitExceeded', { endpoint: '/api/users', clientIp, requestId });
-    return res.status(429).set({
-      ...addSecureHeaders(),
-      'Retry-After': Math.ceil(rateLimit.reset - Math.floor(Date.now() / 1000)),
-      'Content-Type': 'application/json'
-    }).json({ message: 'Too many requests', requestId });
+    logSecurityEvent('RateLimitExceeded', {
+      endpoint: '/api/users',
+      clientIp,
+      requestId,
+      severity: 'warning'
+    });
+    return res
+      .status(429)
+      .set({
+        ...addSecureHeaders(),
+        'Retry-After': Math.ceil(rateLimit.reset - Math.floor(Date.now() / 1000)),
+        'Content-Type': 'application/json'
+      })
+      .json({ message: 'Too many requests', requestId });
   }
 
   console.log(`[${requestId}] /api/users called`);
 
+  // Enforce GET only
   if (req.method !== 'GET') {
-    logSecurityEvent('InvalidMethod', { endpoint: '/api/users', method: req.method, clientIp, requestId });
-    return res.status(405).set({
-      ...addSecureHeaders(),
-      Allow: 'GET',
-      'Content-Type': 'application/json'
-    }).json({ message: 'Method not allowed', requestId });
+    logSecurityEvent('InvalidMethod', {
+      endpoint: '/api/users',
+      method: req.method,
+      clientIp,
+      requestId,
+      severity: 'warning'
+    });
+    return res
+      .status(405)
+      .set({
+        ...addSecureHeaders(),
+        Allow: 'GET',
+        'Content-Type': 'application/json'
+      })
+      .json({ message: 'Method not allowed', requestId });
   }
 
+  // Authenticate
   const userInfo = extractUserInfo(req);
   console.log(`[${requestId}] Authenticated user info:`, userInfo);
-
   if (!userInfo.isAuthenticated) {
-    logSecurityEvent('UnauthorizedAccess', { endpoint: '/api/users', clientIp, requestId });
-    return res.status(401).set({
-      ...addSecureHeaders(),
-      'Content-Type': 'application/json'
-    }).json({ message: 'Authentication required', requestId });
+    const securityEventId = logSecurityEvent('UnauthorizedAccess', {
+      endpoint: '/api/users',
+      clientIp,
+      userAgent: req.headers['user-agent']?.substring(0, 200) || 'unknown',
+      requestId,
+      severity: 'warning'
+    });
+    return res
+      .status(401)
+      .set({ ...addSecureHeaders(), 'Content-Type': 'application/json' })
+      .json({ message: 'Authentication required', requestId, securityEventId });
   }
 
-  // Enforce role-based access
-  const hasRole = await requireRole(userInfo, 'admin');
-  if (!hasRole) {
-    logSecurityEvent('InsufficientPrivileges', {
+  // Authorize admin only
+  if (!requireRole(userInfo, 'admin')) {
+    const securityEventId = logSecurityEvent('InsufficientPrivileges', {
       endpoint: '/api/users',
       userId: userInfo.userId,
       username: userInfo.username,
       clientIp,
-      requestId
+      requestId,
+      severity: 'warning'
     });
-    return res.status(403).set({
-      ...addSecureHeaders(),
-      'Content-Type': 'application/json'
-    }).json({ message: 'Admin permission required', requestId });
+    return res
+      .status(403)
+      .set({ ...addSecureHeaders(), 'Content-Type': 'application/json' })
+      .json({ message: 'Admin permission required', requestId, securityEventId });
   }
 
+  // Optional ?id= filtering
   const userId = req.query.id;
-  if (userId !== null && userId !== undefined) {
+  if (userId != null) {
     if (!validateInput(userId, { type: 'integer', maxLength: 10 })) {
-      logSecurityEvent('InvalidInput', {
+      const securityEventId = logSecurityEvent('InvalidInput', {
         endpoint: '/api/users',
         parameter: 'id',
         value: String(userId).substring(0, 20),
         clientIp,
-        requestId
+        requestId,
+        severity: 'warning'
       });
-      return res.status(400).set({
-        ...addSecureHeaders(),
-        'Content-Type': 'application/json'
-      }).json({ message: 'Invalid user ID format', requestId });
+      return res
+        .status(400)
+        .set({ ...addSecureHeaders(), 'Content-Type': 'application/json' })
+        .json({ message: 'Invalid user ID format', requestId, securityEventId });
     }
   }
 
@@ -132,7 +157,6 @@ router.get('/users', async (req, res) => {
       query += ' WHERE id = @userId';
       sqlRequest.input('userId', sql.Int, parseInt(userId, 10));
     }
-
     query += ' ORDER BY id ASC OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY';
 
     const result = await Promise.race([
@@ -142,7 +166,7 @@ router.get('/users', async (req, res) => {
       )
     ]);
 
-    console.log(`[${requestId}] Retrieved ${result.recordset.length} users`);
+    console.log(`[${requestId}] Retrieved ${result.recordset.length} users from database`);
 
     const sanitizedUsers = result.recordset.map(user => ({
       id: user.id,
@@ -153,28 +177,31 @@ router.get('/users', async (req, res) => {
     }));
 
     const responseTime = Date.now() - startTime;
-
-    return res.status(200).set({
-      ...addSecureHeaders({
-        'Cache-Control': 'max-age=60',
-        'X-Response-Time': `${responseTime}ms`
-      }),
-      'Content-Type': 'application/json'
-    }).json(sanitizedUsers);
+    return res
+      .status(200)
+      .set({
+        ...addSecureHeaders({
+          'Cache-Control': 'max-age=60',
+          'X-Response-Time': `${responseTime}ms`
+        }),
+        'Content-Type': 'application/json'
+      })
+      .json(sanitizedUsers);
 
   } catch (err) {
-    logSecurityEvent('DatabaseError', {
+    const securityEventId = logSecurityEvent('DatabaseError', {
       endpoint: '/api/users',
       errorType: err.name,
       errorMessage: err.message,
       requestId,
-      clientIp
+      clientIp,
+      severity: 'error'
     });
     console.error(`[${requestId}] Error fetching users:`, err);
-    return res.status(500).set({
-      ...addSecureHeaders(),
-      'Content-Type': 'application/json'
-    }).json({ message: 'Internal Server Error', requestId });
+    return res
+      .status(500)
+      .set({ ...addSecureHeaders(), 'Content-Type': 'application/json' })
+      .json({ message: 'Internal Server Error', requestId, securityEventId });
   }
 });
 
