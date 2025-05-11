@@ -61,15 +61,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_50D60EE2E43F417994B7FF14BD107403 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8698955FFBD3495EA7A1431E4DE754AA }}
 
-      - name: Configure Azure App Settings
-        uses: azure/cli@v1
-        with:
-          inlineScript: |
-            az webapp config appsettings set \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --name maanit-website \
-              --settings SqlConnectionString="${{ secrets.SQL_CONNECTION_STRING }}"
-
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
