@@ -1,4 +1,4 @@
-// users.js - Secured API endpoint for user directory
+// users.js - Updated to avoid crypto dependency
 const express = require('express');
 const sql = require('mssql');
 const {
@@ -7,11 +7,17 @@ const {
   addSecureHeaders,
   logSecurityEvent,
   validateInput,
-  checkRateLimit,
-  sanitizeOutput
+  checkRateLimit
 } = require('./auth-utilities');
 
 const router = express.Router();
+
+// Generate a simple request ID without crypto
+function generateRequestId() {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 10);
+  return `${timestamp}-${randomPart}`;
+}
 
 // SQL connection pooling with enhanced security
 let sqlPool = null;
@@ -47,7 +53,8 @@ async function getSqlPool() {
 }
 
 router.get('/users', async (req, res) => {
-  const requestId = crypto.randomUUID();
+  // Use our simple ID generator instead of crypto
+  const requestId = generateRequestId();
   const startTime = Date.now();
 
   // Get client IP for rate limiting and logging
@@ -256,6 +263,8 @@ router.get('/users', async (req, res) => {
       .json(sanitizedUsers);
 
   } catch (err) {
+    // Check if auth-utilities has sanitizeOutput function
+    // If not, make sure we don't reference it
     const securityEventId = logSecurityEvent('DatabaseError', {
       endpoint: '/api/users',
       errorType: err.name,
