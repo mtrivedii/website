@@ -13,7 +13,6 @@ const {
 
 const router = express.Router();
 
-// Simple request ID generator (no crypto)
 function generateRequestId() {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 10);
@@ -191,7 +190,7 @@ router.get('/users', async (req, res) => {
     const sqlRequest = pool.request();
     sqlRequest.timeout = 5000; // 5 second timeout
 
-    // Only select non-sensitive fields that exist in your table
+    // Only select non-sensitive fields that exist in your table (case-sensitive)
     let query = `
       SELECT 
         id, 
@@ -215,7 +214,7 @@ router.get('/users', async (req, res) => {
 
     query += ' ORDER BY id ASC OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY';
 
-    // Execute the query with timeout handling
+    // Execute the query with timeout handling and detailed error logging
     let result;
     try {
       result = await Promise.race([
@@ -224,25 +223,28 @@ router.get('/users', async (req, res) => {
           setTimeout(() => reject(new Error('Query timeout')), 5000)
         )
       ]);
-      // Log result for debugging
-      // console.log('SQL result:', result);
+      // Uncomment for debugging:
+      // console.log('SQL result:', result.recordset);
     } catch (queryError) {
-      console.error(`[${requestId}] SQL error:`, queryError);
+      console.error(`[${requestId}] SQL error details:`, queryError);
+      if (queryError.state) console.error('SQL error state:', queryError.state);
+      if (queryError.code) console.error('SQL error code:', queryError.code);
+      if (queryError.message) console.error('SQL error message:', queryError.message);
       throw new Error(`Query execution error: ${queryError.message}`);
     }
 
-    // Sanitize user data before returning
+    // Defensive mapping for nulls/undefined
     const sanitizedUsers = result.recordset.map(user => ({
-      id: user.id,
-      email: user.email,
-      AzureID: user.AzureID,
-      role: user.Role,
-      mfaEnabled: !!user.mfa_enabled,
-      lastLogin: user.last_login,
-      failedLoginAttempts: user.failed_login_attempts,
-      accountLocked: !!user.account_locked,
-      lockoutUntil: user.lockout_until,
-      mfaLastVerified: user.mfa_last_verified
+      id: user.id ?? null,
+      email: user.email ?? '',
+      AzureID: user.AzureID ?? '',
+      role: user.Role ?? '',
+      mfaEnabled: user.mfa_enabled ?? null,
+      lastLogin: user.last_login ?? null,
+      failedLoginAttempts: user.failed_login_attempts ?? null,
+      accountLocked: user.account_locked ?? null,
+      lockoutUntil: user.lockout_until ?? null,
+      mfaLastVerified: user.mfa_last_verified ?? null
     }));
 
     // Add response time header for performance monitoring
@@ -276,6 +278,7 @@ router.get('/users', async (req, res) => {
       endpoint: '/api/users',
       errorType: err.name,
       errorMessage: err.message,
+      stack: err.stack,
       requestId,
       clientIp,
       severity: 'error'
@@ -290,7 +293,9 @@ router.get('/users', async (req, res) => {
       .json({
         message: 'Internal Server Error',
         requestId,
-        securityEventId
+        securityEventId,
+        error: err.message, // Remove in production if you wish
+        stack: err.stack    // Remove in production if you wish
       });
   }
 });
