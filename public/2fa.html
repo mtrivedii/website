@@ -126,7 +126,7 @@
       // Step 1: Set up 2FA (get QR code)
       async function setup2FA() {
         try {
-          const response = await fetch('/api/2fa', {
+          const response = await fetch('/api/2fa/setup', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'

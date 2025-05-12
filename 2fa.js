@@ -6,8 +6,17 @@ const crypto = require('crypto');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
 
+// Singleton SQL connection pool
+let sqlPool = null;
+async function getSqlPool() {
+  if (!sqlPool) {
+    sqlPool = await sql.connect(process.env.SQLAZURECONNSTR_SqlConnectionString);
+  }
+  return sqlPool;
+}
+
 // Setup 2FA - Step 1: Generate secret and QR code
-router.post('/2fa/setup', async (req, res) => {
+router.post('/setup', async (req, res) => {
   const { userId, email } = req.body;
   
   if (!userId || !email) {
@@ -16,11 +25,11 @@ router.post('/2fa/setup', async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Check if user exists
     const userResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query('SELECT id, email, twoFactorEnabled FROM dbo.users WHERE id = @userId');
     
     if (userResult.recordset.length === 0) {
@@ -42,7 +51,7 @@ router.post('/2fa/setup', async (req, res) => {
     
     // Store the temporary secret in the database
     await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('secret', sql.NVarChar, secret.base32)
       .query(`
         UPDATE dbo.users
@@ -71,7 +80,7 @@ router.post('/2fa/setup', async (req, res) => {
 });
 
 // Setup 2FA - Step 2: Verify and activate
-router.post('/2fa/verify', async (req, res) => {
+router.post('/verify', async (req, res) => {
   const { userId, token } = req.body;
   
   if (!userId || !token) {
@@ -80,11 +89,11 @@ router.post('/2fa/verify', async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Get user's temporary secret
     const secretResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT id, email, twoFactorTempSecret 
         FROM dbo.users 
@@ -123,7 +132,7 @@ router.post('/2fa/verify', async (req, res) => {
     
     // Update user record to enable 2FA
     await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('secret', sql.NVarChar, user.twoFactorTempSecret)
       .input('recoveryCodes', sql.NVarChar, JSON.stringify(hashedCodes))
       .query(`
@@ -153,7 +162,7 @@ router.post('/2fa/verify', async (req, res) => {
 });
 
 // Login with 2FA
-router.post('/2fa/validate', async (req, res) => {
+router.post('/validate', async (req, res) => {
   const { userId, token } = req.body;
   
   if (!userId || !token) {
@@ -162,11 +171,11 @@ router.post('/2fa/validate', async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Get user's 2FA secret
     const secretResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT id, email, twoFactorSecret, twoFactorRecoveryCodes
         FROM dbo.users 
@@ -203,7 +212,7 @@ router.post('/2fa/validate', async (req, res) => {
       recoveryCodes.splice(recoveryCodeIndex, 1);
       
       await pool.request()
-        .input('userId', sql.NVarChar, userId)
+        .input('userId', sql.Int, userId)
         .input('recoveryCodes', sql.NVarChar, JSON.stringify(recoveryCodes))
         .query(`
           UPDATE dbo.users
@@ -243,7 +252,7 @@ router.post('/2fa/validate', async (req, res) => {
 });
 
 // Disable 2FA
-router.post('/2fa/disable', async (req, res) => {
+router.post('/disable', async (req, res) => {
   const { userId, token } = req.body;
   
   if (!userId) {
@@ -252,11 +261,11 @@ router.post('/2fa/disable', async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Get user's 2FA secret
     const secretResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT id, email, twoFactorSecret
         FROM dbo.users 
@@ -285,7 +294,7 @@ router.post('/2fa/disable', async (req, res) => {
     
     // Disable 2FA
     await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         UPDATE dbo.users
         SET 
@@ -311,7 +320,7 @@ router.post('/2fa/disable', async (req, res) => {
 });
 
 // Check 2FA status
-router.get('/2fa/status/:userId', async (req, res) => {
+router.get('/status/:userId', async (req, res) => {
   const userId = req.params.userId;
   
   if (!userId) {
@@ -320,11 +329,11 @@ router.get('/2fa/status/:userId', async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Check if 2FA is enabled
     const result = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT twoFactorEnabled
         FROM dbo.users 
