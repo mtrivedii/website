@@ -71,7 +71,7 @@ function rateLimit(req, res, next) {
 }
 
 // Registration endpoint
-router.post('/register', rateLimit, validateRegistration, async (req, res) => {
+router.post('/', rateLimit, validateRegistration, async (req, res) => {
   const { email, password } = req.body;
   const saltRounds = 10;
   
@@ -96,17 +96,30 @@ router.post('/register', rateLimit, validateRegistration, async (req, res) => {
     const userId = uuidv4();
     
     // Insert user into database
-    const insertQuery = `
-      INSERT INTO dbo.users (id, email, password_hash, Role, status, created_at)
-      VALUES (@id, @email, @passwordHash, 'user', 'Active', GETDATE())
-    `;
-    
-    await pool.request()
-      .input('id', sql.NVarChar, userId)
-      .input('email', sql.NVarChar, email)
-      .input('passwordHash', sql.NVarChar, hashedPassword)
-      .query(insertQuery);
-    
+  const insertQuery = `
+  INSERT INTO dbo.users (
+    id, 
+    email, 
+    password, 
+    Role, 
+    status, 
+    registration_complete
+  )
+  VALUES (
+    @id, 
+    @email, 
+    @passwordHash, 
+    'user', 
+    'Active', 
+    1
+  )
+`;
+
+await pool.request()
+  .input('id', sql.NVarChar, userId)
+  .input('email', sql.NVarChar, email)
+  .input('passwordHash', sql.NVarChar, hashedPassword)
+  .query(insertQuery);
     // Log successful registration (for security audit)
     console.log(`User registered: ${email} (${userId})`);
     
