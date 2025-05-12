@@ -13,11 +13,11 @@ async function handler(req, res) {
       return res.status(200).end();
     }
 
-    // Get user info from App Service Easy Auth
-    const userInfo = extractUserInfo(req);
-    if (!userInfo.isAuthenticated) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    // Comment out authentication check to allow anonymous uploads
+    // const userInfo = extractUserInfo(req);
+    // if (!userInfo.isAuthenticated) {
+    //   return res.status(401).json({ error: "Unauthorized" });
+    // }
 
     const blobName = req.query.blobName;
     if (!blobName || typeof blobName !== 'string' || blobName.length > 256) {
