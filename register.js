@@ -18,8 +18,8 @@ async function getSqlPool() {
 
   // Build the config object for mssql
   const config = {
-    server: 'maanit-server.database.windows.net', // <-- Your server name
-    database: 'maanit-db',                        // <-- Your DB name
+    server: 'maanit-server.database.windows.net', // Your server name
+    database: 'maanit-db',                        // Your DB name
     options: {
       encrypt: true,
       trustServerCertificate: false
