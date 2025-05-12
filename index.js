@@ -8,25 +8,23 @@ const checkAdminHandler = require('./checkAdmin');
 const getSasTokenHandler = require('./getSasToken');
 const usersRouter = require('./users');
 const mfaRouter = require('./mfa');
+const registerRouter = require('./register-api'); // Add this line
 const { isMfaEnabled } = require('./mfaUtils');
-const requireAdminDb = require('./requireAdminDb'); // <-- DB-backed admin middleware
+const requireAdminDb = require('./requireAdminDb');
 
 const app = express();
 
-// Disable the X-Powered-By header
 app.disable('x-powered-by');
 
-// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS (development)
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization'
+    'Content-Type, Authorization, X-CSRF-Token'  // Added X-CSRF-Token
   );
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -65,7 +63,6 @@ app.use((req, res, next) => {
 function requireAuth(req, res, next) {
   const principal = req.headers['x-ms-client-principal'];
   if (!principal) {
-    // Redirect to AAD login and come back
     return res.redirect(
       '/.auth/login/aad?post_login_redirect_uri=' +
         encodeURIComponent(req.originalUrl)
@@ -87,8 +84,10 @@ app.options('/api/getSasToken', (req, res) => {
   res.status(200).end();
 });
 
+app.use('/api/register', registerRouter); // Add this line
 app.use('/api/mfa', mfaRouter);
 app.use('/api', usersRouter);
+
 
 // === Protected Admin Pages ===
 app.get('/admin.html', requireAdminDb, (req, res) => {
