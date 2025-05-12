@@ -31,7 +31,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security headers middleware with updated CSP for blob storage
+// Security headers middleware
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
   res.setHeader('X-Frame-Options', 'DENY');
