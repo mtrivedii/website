@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  // Removed authentication check to allow anonymous uploads
+  // Remove only the checkAuthStatus() call and function
 
   // File selection handler
   fileInput.addEventListener('change', function() {
@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function getSasToken(filename) {
     try {
       // Important: Use your actual backend URL, not a relative path
+      // This avoids CORS issues with AAD authentication
       const baseUrl = window.location.origin;
       const apiUrl = `${baseUrl}/api/getSasToken?blobName=${encodeURIComponent(filename)}`;
       
@@ -85,11 +86,11 @@ document.addEventListener('DOMContentLoaded', function() {
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Pragma": "no-cache"
         },
-        credentials: 'include' // Keep this to support authenticated users too
+        credentials: 'include' // Always include credentials
       });
       
       if (!response.ok) {
-        // Don't redirect to login on 401 errors
+        // Remove the 401 redirect to login page section
         let errorText = await response.text();
         try {
           const errorJson = JSON.parse(errorText);
