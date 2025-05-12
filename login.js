@@ -11,34 +11,28 @@ let sqlPool = null;
 async function getSqlPool() {
   if (sqlPool) return sqlPool;
 
-  try {
-    // Acquire an access token for Azure SQL
-    const credential = new DefaultAzureCredential();
-    const tokenResponse = await credential.getToken('https://database.windows.net/.default');
+  // Acquire an access token for Azure SQL
+  const credential = new DefaultAzureCredential();
+  const tokenResponse = await credential.getToken('https://database.windows.net/.default');
 
-    // Build the config object for mssql
-    const config = {
-      server: 'maanit-server.database.windows.net',
-      database: 'maanit-db',
+  // Build the config object for mssql
+  const config = {
+    server: 'maanit-server.database.windows.net', // Your server name
+    database: 'maanit-db',                        // Your DB name
+    options: {
+      encrypt: true,
+      trustServerCertificate: false
+    },
+    authentication: {
+      type: 'azure-active-directory-access-token',
       options: {
-        encrypt: true,
-        trustServerCertificate: false
-      },
-      authentication: {
-        type: 'azure-active-directory-access-token',
-        options: {
-          token: tokenResponse.token
-        }
+        token: tokenResponse.token
       }
-    };
+    }
+  };
 
-    sqlPool = await sql.connect(config);
-    return sqlPool;
-  } catch (err) {
-    console.error('Error creating SQL connection pool:', err);
-    sqlPool = null;
-    throw err;
-  }
+  sqlPool = await sql.connect(config);
+  return sqlPool;
 }
 
 // Rate limiting middleware (simple implementation)
@@ -67,8 +61,8 @@ function rateLimit(req, res, next) {
   next();
 }
 
-// Login endpoint
-router.post('/', rateLimit, async (req, res) => {
+// Login endpoint - Matches pattern in register.js with '/' route
+router.post('/login', rateLimit, async (req, res) => {
   const { email, password } = req.body;
   
   // Basic validation
@@ -82,7 +76,7 @@ router.post('/', rateLimit, async (req, res) => {
     
     // Look up user by email
     const query = `
-      SELECT id, email, password_hash, Role, status
+      SELECT id, email, password_hash, Role, status, twoFactorEnabled
       FROM dbo.users 
       WHERE email = @email
     `;
@@ -121,6 +115,16 @@ router.post('/', rateLimit, async (req, res) => {
       const userAttempts = trackUserLoginAttempts(email);
       
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    
+    // Check if 2FA is required
+    if (user.twoFactorEnabled) {
+      return res.status(200).json({
+        requireTwoFactor: true,
+        userId: user.id,
+        email: user.email,
+        redirectTo: '/2fa-verify.html'
+      });
     }
     
     // Generate session token
