@@ -132,7 +132,8 @@ router.post('/', rateLimit, validateRegistration, async (req, res) => {
     return res.status(201).json({
       message: 'Registration successful',
       email: normalizedEmail,
-      userId
+      userId,
+      redirectTo: '/2fa.html'
     });
 
   } catch (error) {
