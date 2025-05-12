@@ -4,6 +4,42 @@ const router = express.Router();
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { DefaultAzureCredential } = require('@azure/identity');
+
+// Singleton SQL connection pool using Managed Identity
+let sqlPool = null;
+async function getSqlPool() {
+  if (sqlPool) return sqlPool;
+
+  try {
+    // Acquire an access token for Azure SQL
+    const credential = new DefaultAzureCredential();
+    const tokenResponse = await credential.getToken('https://database.windows.net/.default');
+
+    // Build the config object for mssql
+    const config = {
+      server: 'maanit-server.database.windows.net',
+      database: 'maanit-db',
+      options: {
+        encrypt: true,
+        trustServerCertificate: false
+      },
+      authentication: {
+        type: 'azure-active-directory-access-token',
+        options: {
+          token: tokenResponse.token
+        }
+      }
+    };
+
+    sqlPool = await sql.connect(config);
+    return sqlPool;
+  } catch (err) {
+    console.error('Error creating SQL connection pool:', err);
+    sqlPool = null;
+    throw err;
+  }
+}
 
 // Rate limiting middleware (simple implementation)
 const loginAttempts = new Map();
@@ -32,7 +68,7 @@ function rateLimit(req, res, next) {
 }
 
 // Login endpoint
-router.post('/login', rateLimit, async (req, res) => {
+router.post('/', rateLimit, async (req, res) => {
   const { email, password } = req.body;
   
   // Basic validation
@@ -42,7 +78,7 @@ router.post('/login', rateLimit, async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await getSqlPool();
     
     // Look up user by email
     const query = `
