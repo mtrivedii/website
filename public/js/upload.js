@@ -11,27 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  // Check authentication status before proceeding
-  checkAuthStatus();
-
-  function checkAuthStatus() {
-    // Try to fetch user info - this will redirect to login if needed
-    fetch('/.auth/me', {
-      credentials: 'include',
-      mode: 'cors'
-    })
-    .then(response => {
-      if (!response.ok && response.status === 401) {
-        // Not authenticated, redirect to login
-        window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
-        return;
-      }
-    })
-    .catch(error => {
-      console.warn('Auth check failed:', error);
-      // Continue anyway - the SAS token request will handle auth if needed
-    });
-  }
+  // Removed authentication check to allow anonymous uploads
 
   // File selection handler
   fileInput.addEventListener('change', function() {
@@ -95,7 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
   async function getSasToken(filename) {
     try {
       // Important: Use your actual backend URL, not a relative path
-      // This avoids CORS issues with AAD authentication
       const baseUrl = window.location.origin;
       const apiUrl = `${baseUrl}/api/getSasToken?blobName=${encodeURIComponent(filename)}`;
       
@@ -106,16 +85,11 @@ document.addEventListener('DOMContentLoaded', function() {
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Pragma": "no-cache"
         },
-        credentials: 'include' // Always include credentials
+        credentials: 'include' // Keep this to support authenticated users too
       });
       
       if (!response.ok) {
-        if (response.status === 401) {
-          // If unauthorized, redirect to login page
-          window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
-          throw new Error('Authentication required');
-        }
-        
+        // Don't redirect to login on 401 errors
         let errorText = await response.text();
         try {
           const errorJson = JSON.parse(errorText);
