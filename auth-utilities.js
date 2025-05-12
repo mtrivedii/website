@@ -1,33 +1,32 @@
 // auth-utilities.js
-const crypto = require('crypto');
-const validator = require('validator');
 
+const crypto = require('crypto');
+
+/**
+ * Extracts user info from Azure App Service Easy Auth header.
+ * Returns an object with userId, username, roles, etc.
+ */
 function extractUserInfo(req) {
   try {
-    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]
-                   || req.headers['x-real-ip']
-                   || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
-
+    // Get client principal header
     const clientPrincipal = req.headers['x-ms-client-principal'];
     if (!clientPrincipal) {
       return { isAuthenticated: false, error: 'Not authenticated' };
     }
 
-    if (!/^[A-Za-z0-9+/=]+$/.test(clientPrincipal)) {
-      return { isAuthenticated: false, error: 'Invalid authentication format' };
-    }
-
+    // Base64 decode and parse
     let principal;
     try {
       const decoded = Buffer.from(clientPrincipal, 'base64').toString('utf8');
       principal = JSON.parse(decoded);
-      console.log('Decoded client principal:', principal);
+      // Uncomment for debugging:
+      // console.log('Decoded principal:', principal);
     } catch (err) {
-      console.error(`Auth decode error: ${err.message}`);
+      console.error('Auth decode error:', err.message);
       return { isAuthenticated: false, error: 'Authentication decode error' };
     }
 
+    // Claims array
     if (!principal?.claims || !Array.isArray(principal.claims)) {
       return { isAuthenticated: false, error: 'Invalid authentication data' };
     }
@@ -41,7 +40,7 @@ function extractUserInfo(req) {
       )
       .map(c => c.val);
 
-    // Extract groups if you're using AAD group claims
+    // Extract groups if present
     const groups = principal.claims
       .filter(c =>
         c.typ === 'groups' ||
@@ -55,14 +54,12 @@ function extractUserInfo(req) {
 
     // Build boolean shortcuts
     const userRoles = {
-      isAdmin: roles.some(r => r.toLowerCase() === 'admin'),
+      isAdmin: roles.some(r => r && r.toLowerCase() === 'admin'),
       canReadScoreboard: roles.some(r =>
-        r.toLowerCase() === 'scoreboard.read' ||
-        r.toLowerCase() === 'admin'
+        r && (r.toLowerCase() === 'scoreboard.read' || r.toLowerCase() === 'admin')
       ),
       canWriteScoreboard: roles.some(r =>
-        r.toLowerCase() === 'scoreboard.write' ||
-        r.toLowerCase() === 'admin'
+        r && (r.toLowerCase() === 'scoreboard.write' || r.toLowerCase() === 'admin')
       )
     };
 
@@ -70,18 +67,27 @@ function extractUserInfo(req) {
     const userIdClaim = principal.claims.find(c =>
       c.typ === 'http://schemas.microsoft.com/identity/claims/objectidentifier' ||
       c.typ === 'oid' ||
-      c.typ === 'sub'
+      c.typ === 'sub' ||
+      c.typ === 'userId'
     );
     const usernameClaim = principal.claims.find(c =>
       c.typ === 'preferred_username' ||
       c.typ === 'name' ||
       c.typ === 'upn' ||
-      c.typ === 'email'
+      c.typ === 'email' ||
+      c.typ === 'userDetails'
     );
 
     if (!userIdClaim?.val) {
       return { isAuthenticated: false, error: 'Incomplete authentication data' };
     }
+
+    // Client IP and agent for logging/auditing
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]
+                   || req.headers['x-real-ip']
+                   || req.ip
+                   || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
 
     const userInfo = {
       isAuthenticated: true,
@@ -96,7 +102,9 @@ function extractUserInfo(req) {
       authTimestamp: Date.now()
     };
 
-    console.log('Final user info:', userInfo);
+    // Uncomment for debugging:
+    // console.log('Final user info:', userInfo);
+
     return userInfo;
   } catch (error) {
     console.error('Critical error in auth processing:', error);
@@ -104,6 +112,12 @@ function extractUserInfo(req) {
   }
 }
 
+/**
+ * Checks if the user has the required role.
+ * @param {*} userInfo - result of extractUserInfo
+ * @param {*} role - role name (case-insensitive)
+ * @returns {boolean}
+ */
 function requireRole(userInfo, role) {
   if (!userInfo?.isAuthenticated) return false;
   if (Date.now() - userInfo.authTimestamp > 30 * 60 * 1000) return false;
@@ -118,19 +132,11 @@ function requireRole(userInfo, role) {
     case 'scoreboard.write':
       return userInfo.roles.canWriteScoreboard === true;
     default:
-      return userInfo.allRoles.some(r => r.toLowerCase() === want);
+      return userInfo.allRoles.some(r => r && r.toLowerCase() === want);
   }
 }
 
 module.exports = {
   extractUserInfo,
   requireRole,
-  logSecurityEvent,
-  addSecureHeaders,
-  validateInput,
-  maskEmail,
-  sanitizeOutput,
-  checkRateLimit,
-  addToBlacklist,
-  detectSuspiciousPatterns
 };
