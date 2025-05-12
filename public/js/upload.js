@@ -94,53 +94,38 @@ document.addEventListener('DOMContentLoaded', function() {
   // Enhanced SAS token request
   async function getSasToken(filename) {
     try {
-      // Call the Azure Function through the configured route
+      // For App Service, cookies are often important for auth
       const response = await fetchWithTimeout(
         `/api/getSasToken?blobName=${encodeURIComponent(filename)}`, 
         {
+          method: 'GET',
           headers: {
-            "Accept": "application/json"  // Request JSON explicitly
-          }
+            "Accept": "application/json",
+            "Cache-Control": "no-cache"
+          },
+          credentials: 'include' // Important: include auth cookies
         },
         10000
       );
       
       if (!response.ok) {
+        if (response.status === 401) {
+          // Auth issue - redirect to login
+          window.location.href = '/.auth/login/aad?post_login_redirect_uri=/upload.html';
+          throw new Error('Authentication required');
+        }
+        
         let errorText = await response.text();
         try {
-          // Try to parse as JSON first
           const errorJson = JSON.parse(errorText);
           throw new Error(errorJson.error || errorJson.details || `Failed to get SAS token: ${response.status}`);
         } catch (parseError) {
-          // If it's not valid JSON, use the raw text (truncated)
           throw new Error(`Failed to get SAS token: ${errorText.substring(0, 100)}`);
         }
       }
       
-      let data;
-      const contentType = response.headers.get('content-type');
-      const responseText = await response.text();
+      const data = await response.json();
       
-      // Try to extract JSON from the response, even if content type is incorrect
-      try {
-        // First try direct JSON parsing
-        data = JSON.parse(responseText);
-      } catch (error) {
-        // If direct parsing fails, try to extract JSON from potential HTML
-        try {
-          // Look for JSON-like content in the response
-          const jsonMatch = responseText.match(/\{.*\}/s);
-          if (jsonMatch) {
-            data = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error(`Could not find JSON in response`);
-          }
-        } catch (nestedError) {
-          throw new Error(`Response is not valid JSON: ${contentType}`);
-        }
-      }
-      
-      // Validate response data
       if (!data || !data.sasUrl) {
         throw new Error('Invalid SAS token response: missing sasUrl');
       }
@@ -152,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Form submission handler with enhanced error handling
+  // Form submission handler
   uploadForm.addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -200,12 +185,11 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         };
         
-        // Set up error handler
+        // Error and timeout handlers
         xhr.onerror = function() {
           reject(new Error('Network error during upload'));
         };
         
-        // Set up timeout handler
         xhr.timeout = 120000; // 2 minutes
         xhr.ontimeout = function() {
           reject(new Error('Upload timed out'));

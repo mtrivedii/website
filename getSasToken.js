@@ -1,8 +1,8 @@
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require("@azure/storage-blob");
-const { extractUserInfo } = require('./auth-utilities');
 
 async function handler(req, res) {
   try {
+    // Extract user info from App Service Easy Auth headers
     const userInfo = extractUserInfo(req);
     if (!userInfo.isAuthenticated) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -38,6 +38,35 @@ async function handler(req, res) {
   } catch (error) {
     console.error("Error generating SAS token:", error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Parse Easy Auth headers
+function extractUserInfo(req) {
+  const clientPrincipal = req.headers['x-ms-client-principal'];
+  if (!clientPrincipal) {
+    return { isAuthenticated: false };
+  }
+  
+  try {
+    // Parse the client principal header
+    const principal = JSON.parse(Buffer.from(clientPrincipal, 'base64').toString('utf8'));
+    
+    // Extract user ID
+    const userIdClaim = principal.claims.find(claim => 
+      claim.typ === 'http://schemas.microsoft.com/identity/claims/objectidentifier' ||
+      claim.typ === 'oid' ||
+      claim.typ === 'sub'
+    );
+    
+    return {
+      isAuthenticated: true,
+      userId: userIdClaim ? userIdClaim.val : null,
+      userRoles: principal.userRoles || []
+    };
+  } catch (error) {
+    console.error('Error parsing client principal:', error);
+    return { isAuthenticated: false };
   }
 }
 
