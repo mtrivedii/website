@@ -11,26 +11,26 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  // Add timeout utility for fetch operations
-  async function fetchWithTimeout(url, options = {}, timeout = 15000) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    const signal = controller.signal;
-    
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal
-      });
-      clearTimeout(id);
-      return response;
-    } catch (error) {
-      clearTimeout(id);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timed out');
+  // Check authentication status before proceeding
+  checkAuthStatus();
+
+  function checkAuthStatus() {
+    // Try to fetch user info - this will redirect to login if needed
+    fetch('/.auth/me', {
+      credentials: 'include',
+      mode: 'cors'
+    })
+    .then(response => {
+      if (!response.ok && response.status === 401) {
+        // Not authenticated, redirect to login
+        window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
+        return;
       }
-      throw error;
-    }
+    })
+    .catch(error => {
+      console.warn('Auth check failed:', error);
+      // Continue anyway - the SAS token request will handle auth if needed
+    });
   }
 
   // File selection handler
@@ -94,24 +94,25 @@ document.addEventListener('DOMContentLoaded', function() {
   // Enhanced SAS token request
   async function getSasToken(filename) {
     try {
-      // For App Service, cookies are often important for auth
-      const response = await fetchWithTimeout(
-        `/api/getSasToken?blobName=${encodeURIComponent(filename)}`, 
-        {
-          method: 'GET',
-          headers: {
-            "Accept": "application/json",
-            "Cache-Control": "no-cache"
-          },
-          credentials: 'include' // Important: include auth cookies
+      // Important: Use your actual backend URL, not a relative path
+      // This avoids CORS issues with AAD authentication
+      const baseUrl = window.location.origin;
+      const apiUrl = `${baseUrl}/api/getSasToken?blobName=${encodeURIComponent(filename)}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          "Accept": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
         },
-        10000
-      );
+        credentials: 'include' // Always include credentials
+      });
       
       if (!response.ok) {
         if (response.status === 401) {
-          // Auth issue - redirect to login
-          window.location.href = '/.auth/login/aad?post_login_redirect_uri=/upload.html';
+          // If unauthorized, redirect to login page
+          window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
           throw new Error('Authentication required');
         }
         
@@ -137,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Form submission handler
+  // Form submission handler with enhanced error handling
   uploadForm.addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -185,11 +186,12 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         };
         
-        // Error and timeout handlers
+        // Set up error handler
         xhr.onerror = function() {
           reject(new Error('Network error during upload'));
         };
         
+        // Set up timeout handler
         xhr.timeout = 120000; // 2 minutes
         xhr.ontimeout = function() {
           reject(new Error('Upload timed out'));
