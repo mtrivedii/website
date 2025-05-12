@@ -11,27 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  // Check authentication status before proceeding
-  checkAuthStatus();
-
-  function checkAuthStatus() {
-    // Try to fetch user info - this will redirect to login if needed
-    fetch('/.auth/me', {
-      credentials: 'include',
-      mode: 'cors'
-    })
-    .then(response => {
-      if (!response.ok && response.status === 401) {
-        // Not authenticated, redirect to login
-        window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
-        return;
-      }
-    })
-    .catch(error => {
-      console.warn('Auth check failed:', error);
-      // Continue anyway - the SAS token request will handle auth if needed
-    });
-  }
+  // Authentication check removed
 
   // File selection handler
   fileInput.addEventListener('change', function() {
@@ -110,11 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       
       if (!response.ok) {
-        if (response.status === 401) {
-          // If unauthorized, redirect to login page
-          window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
-          throw new Error('Authentication required');
-        }
+        // Authentication check removed
         
         let errorText = await response.text();
         try {
