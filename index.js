@@ -1,39 +1,51 @@
-// index.js - Main Express application with admin page protection
+// index.js
 
 const express = require('express');
 const path = require('path');
 
-// Import handlers
+// Import handlers & routers
 const checkAdminHandler = require('./checkAdmin');
 const getSasTokenHandler = require('./getSasToken');
-const usersRouter = require('./users'); // Express router
-const mfaRouter = require('./mfa'); // MFA router
-const { isMfaEnabled } = require('./mfaUtils'); // MFA utility functions
-const requireAdmin = require('./requireAdmin'); // Admin middleware
+const usersRouter = require('./users');
+const mfaRouter = require('./mfa');
+const { isMfaEnabled } = require('./mfaUtils');
+const requireAdminDb = require('./requireAdminDb'); // <-- DB-backed admin middleware
 
 const app = express();
 
-// Disable X-Powered-By header
+// Disable the X-Powered-By header
 app.disable('x-powered-by');
 
-// Parse JSON and URL-encoded data
+// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS middleware to fix issues in development
+// CORS (development)
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization'
+  );
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
 
-// Security headers middleware
+// Security headers
 app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline'; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: https://api.qrserver.com; " +
+      "connect-src 'self' https://*.blob.core.windows.net " +
+      "https://*.microsoftonline.com https://login.microsoft.com " +
+      "https://maanit-func.azurewebsites.net"
+  );
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -42,27 +54,30 @@ app.use((req, res, next) => {
   next();
 });
 
-// Debugging middleware - log all requests
+// Debug logger
 app.use((req, res, next) => {
-  console.log(`[DEBUG] ${req.method} ${req.url} from ${req.ip}`);
+  console.log(`[DEBUG] ${req.method} ${req.url} — IP: ${req.ip}`);
   console.log('[DEBUG] Headers:', req.headers);
   next();
 });
 
-// Middleware to require authentication using Easy Auth headers
+// Easy Auth guard
 function requireAuth(req, res, next) {
   const principal = req.headers['x-ms-client-principal'];
   if (!principal) {
-    return res.redirect('/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(req.originalUrl));
+    // Redirect to AAD login and come back
+    return res.redirect(
+      '/.auth/login/aad?post_login_redirect_uri=' +
+        encodeURIComponent(req.originalUrl)
+    );
   }
   next();
 }
 
-// Register API routes with authentication
+// === API Routes ===
 app.get('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 app.post('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 
-// Modified SAS token routes with proper OPTIONS handling for CORS
 app.get('/api/getSasToken', getSasTokenHandler.handler);
 app.options('/api/getSasToken', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -72,39 +87,40 @@ app.options('/api/getSasToken', (req, res) => {
   res.status(200).end();
 });
 
-// Mount the MFA router for MFA-related routes
 app.use('/api/mfa', mfaRouter);
-
-// Mount the users router (add requireAuth if needed)
 app.use('/api', usersRouter);
 
-// ======== ADMIN PAGE PROTECTION SECTION ========
-
-// Protect /admin.html
-app.get('/admin.html', requireAdmin, (req, res) => {
+// === Protected Admin Pages ===
+app.get('/admin.html', requireAdminDb, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
-
-// Protect /users.html
-app.get('/users.html', requireAdmin, (req, res) => {
+app.get('/users.html', requireAdminDb, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'users.html'));
 });
 
-// ===============================================
-
-// Serve static files from 'public' directory (excluding protected HTML)
+// === Static File Serving ===
 app.use((req, res, next) => {
-  // Block direct static access to protected HTML files
+  // Let requireAdminDb handle these
   if (
     (req.path === '/admin.html' || req.path === '/users.html') &&
     req.method === 'GET'
   ) {
-    return next(); // Let the protected route above handle it
+    return next();
   }
   express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, filePath) => {
-      if (!filePath.endsWith('.css') && !filePath.endsWith('.js')) {
-        res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
+      // Apply CSP to non-static assets
+      if (!filePath.match(/\.(css|js)$/)) {
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https://api.qrserver.com; " +
+            "connect-src 'self' https://*.blob.core.windows.net " +
+            "https://*.microsoftonline.com https://login.microsoft.com " +
+            "https://maanit-func.azurewebsites.net"
+        );
       }
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -115,7 +131,7 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 
-// 401 fallback (optional)
+// 401 page
 app.get('/401.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', '401.html'));
 });
@@ -126,15 +142,12 @@ app.use((err, req, res, next) => {
   res.status(500).send('Internal Server Error');
 });
 
-// Optional: SPA fallback to index.html
+// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Initialize app locals for temporary MFA data
-app.locals.tempSecrets = {};
-
-// Start the server
+// Start server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
