@@ -77,7 +77,7 @@ router.post('/', rateLimit, validateRegistration, async (req, res) => {
   
   try {
     // Get database connection
-    const pool = await sql.connect(process.env.SqlConnectionString);
+    const pool = await sql.connect(process.env.SQLCONNSTR_SqlConnectionString);
     
     // Check if email already exists
     const checkQuery = `SELECT 1 FROM dbo.users WHERE email = @email`;
