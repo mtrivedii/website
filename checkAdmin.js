@@ -1,5 +1,22 @@
+// checkAdmin.js
 const sql = require('mssql');
 const { extractUserInfo } = require('./auth-utilities');
+
+const sqlConfig = {
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  authentication: { type: 'azure-active-directory-msi-app-service' },
+  options: { encrypt: true, trustServerCertificate: false }
+};
+
+let poolPromise = null;
+function getSqlPool() {
+  if (!poolPromise) {
+    poolPromise = sql.connect(sqlConfig);
+    poolPromise.catch(() => { poolPromise = null; }); // Reset on failure
+  }
+  return poolPromise;
+}
 
 async function handler(req, res) {
   console.log('Request headers:', JSON.stringify(req.headers));
@@ -19,23 +36,8 @@ async function handler(req, res) {
   }
 
   try {
-    // Configuration for Azure SQL with Entra ID authentication
-    const sqlConfig = {
-      server: process.env.DB_SERVER || 'yourserver.database.windows.net', // TODO: replace
-      database: process.env.DB_NAME || 'yourdatabase',                     // TODO: replace
-      authentication: {
-        type: 'azure-active-directory-msi-app-service',
-      },
-      options: {
-        encrypt: true,
-        trustServerCertificate: false
-      }
-    };
-
-    console.log('Connecting to SQL Server with Entra ID (MSI) authentication');
-    await sql.connect(sqlConfig);
-
-    const request = new sql.Request();
+    const pool = await getSqlPool();
+    const request = pool.request();
     request.input('userId', sql.NVarChar, userInfo.userId);
 
     const query = 'SELECT Role FROM Users WHERE AzureID = @userId';
@@ -68,12 +70,6 @@ async function handler(req, res) {
     return res
       .status(500)
       .json({ error: 'Database error', details: err.message });
-  } finally {
-    try {
-      await sql.close();
-    } catch (closeErr) {
-      console.error('Error closing SQL connection:', closeErr);
-    }
   }
 }
 
