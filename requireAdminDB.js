@@ -1,4 +1,5 @@
 // requireAdminDb.js
+
 const sql = require('mssql');
 const path = require('path');
 const { extractUserInfo } = require('./auth-utilities');
@@ -32,7 +33,9 @@ async function requireAdminDb(req, res, next) {
     userInfo.userId.length < 5
   ) {
     console.warn('Unauthorized: Missing or invalid user ID');
-    return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
+    return res
+      .status(401)
+      .sendFile(path.join(__dirname, 'public', '401.html'));
   }
 
   try {
@@ -42,22 +45,29 @@ async function requireAdminDb(req, res, next) {
 
     console.log('Querying DB with AzureID:', userInfo.userId);
 
-    const result = await request.query('SELECT Role FROM Users WHERE AzureID = @userId');
+    const result = await request.query(
+      'SELECT Role FROM Users WHERE AzureID = @userId'
+    );
     console.log('DB result:', result.recordset);
 
     const userRole = result.recordset[0]?.Role;
     if (!userRole) {
       console.warn('Forbidden: User not found in database');
-      return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
+      return res
+        .status(401)
+        .sendFile(path.join(__dirname, 'public', '401.html'));
     }
 
     console.log('User role found:', userRole);
 
     if (userRole.trim().toLowerCase() !== 'admin') {
       console.warn('Forbidden: User is not admin (role:', userRole, ')');
-      return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
+      return res
+        .status(401)
+        .sendFile(path.join(__dirname, 'public', '401.html'));
     }
 
+    // User is admin
     req.userRole = userRole;
     next();
   } catch (err) {
