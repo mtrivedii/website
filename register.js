@@ -5,7 +5,6 @@ const router = express.Router();
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 const validator = require('validator');
-const { v4: uuidv4 } = require('uuid');
 const { DefaultAzureCredential } = require('@azure/identity');
 
 // Singleton SQL connection pool using Managed Identity
@@ -103,13 +102,9 @@ router.post('/', rateLimit, validateRegistration, async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Generate a unique ID for the user
-    const userId = uuidv4();
-
-    // Insert user into database
+    // Insert user into database (let SQL Server generate the ID)
     const insertQuery = `
       INSERT INTO dbo.users (
-        id, 
         email, 
         password, 
         Role, 
@@ -117,26 +112,27 @@ router.post('/', rateLimit, validateRegistration, async (req, res) => {
         registration_complete
       )
       VALUES (
-        @id, 
         @email, 
         @passwordHash, 
         'user', 
         'Active', 
         1
-      )
+      );
+      SELECT SCOPE_IDENTITY() AS newId;
     `;
 
-    await pool.request()
-      .input('id', sql.NVarChar, userId)
+    const result = await pool.request()
       .input('email', sql.NVarChar, normalizedEmail)
       .input('passwordHash', sql.NVarChar, hashedPassword)
       .query(insertQuery);
 
+    const userId = result.recordset[0].newId;
     console.log(`User registered: ${normalizedEmail} (${userId})`);
 
     return res.status(201).json({
       message: 'Registration successful',
-      email: normalizedEmail
+      email: normalizedEmail,
+      userId
     });
 
   } catch (error) {
