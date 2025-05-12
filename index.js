@@ -1,4 +1,5 @@
-// index.js - Main Express application with fixed MFA redirection
+// index.js - Main Express application with admin page protection
+
 const express = require('express');
 const path = require('path');
 
@@ -8,6 +9,7 @@ const getSasTokenHandler = require('./getSasToken');
 const usersRouter = require('./users'); // Express router
 const mfaRouter = require('./mfa'); // MFA router
 const { isMfaEnabled } = require('./mfaUtils'); // MFA utility functions
+const requireAdmin = require('./requireAdmin'); // Admin middleware
 
 const app = express();
 
@@ -20,29 +22,23 @@ app.use(express.urlencoded({ extended: true }));
 
 // CORS middleware to fix issues in development
 app.use((req, res, next) => {
-  // Allow requests from any origin during development
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
   next();
 });
 
 // Security headers middleware with updated CSP for blob storage
 app.use((req, res, next) => {
-  // Set security headers with expanded connect-src for Azure Blob Storage
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  
   next();
 });
 
@@ -79,24 +75,50 @@ app.options('/api/getSasToken', (req, res) => {
 // Mount the MFA router for MFA-related routes
 app.use('/api/mfa', mfaRouter);
 
-// Mount the users router - TEMPORARILY REMOVED requireAuth for testing
+// Mount the users router (add requireAuth if needed)
 app.use('/api', usersRouter);
 
-// Serve static files from 'public' directory with updated CSP
-app.use(express.static(path.join(__dirname, 'public'), {
-  // Set headers for static files
-  setHeaders: (res, path) => {
-    // Don't apply CSP to CSS and JS files to avoid breaking functionality
-    if (!path.endsWith('.css') && !path.endsWith('.js')) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
-    }
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+// ======== ADMIN PAGE PROTECTION SECTION ========
+
+// Protect /admin.html
+app.get('/admin.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Protect /users.html
+app.get('/users.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'users.html'));
+});
+
+// ===============================================
+
+// Serve static files from 'public' directory (excluding protected HTML)
+app.use((req, res, next) => {
+  // Block direct static access to protected HTML files
+  if (
+    (req.path === '/admin.html' || req.path === '/users.html') &&
+    req.method === 'GET'
+  ) {
+    return next(); // Let the protected route above handle it
   }
-}));
+  express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+      if (!filePath.endsWith('.css') && !filePath.endsWith('.js')) {
+        res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.qrserver.com; connect-src 'self' https://*.blob.core.windows.net https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net");
+      }
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  })(req, res, next);
+});
+
+// 401 fallback (optional)
+app.get('/401.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', '401.html'));
+});
 
 // Error handler
 app.use((err, req, res, next) => {
