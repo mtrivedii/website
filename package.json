@@ -10,6 +10,7 @@
     "lint": "echo \"Add a linter for security validation\""
   },
   "dependencies": {
+    "@azure/identity": "^4.9.1",
     "@azure/storage-blob": "^12.27.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",

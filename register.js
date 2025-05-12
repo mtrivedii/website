@@ -1,16 +1,39 @@
+// register.js - API endpoint for user registration using Managed Identity for Azure SQL
+
 const express = require('express');
 const router = express.Router();
 const sql = require('mssql');
 const bcrypt = require('bcrypt');
 const validator = require('validator');
 const { v4: uuidv4 } = require('uuid');
+const { DefaultAzureCredential } = require('@azure/identity');
 
-// Singleton SQL connection pool
+// Singleton SQL connection pool using Managed Identity
 let sqlPool = null;
 async function getSqlPool() {
-  if (!sqlPool) {
-    sqlPool = await sql.connect(process.env.SQLAZURECONNSTR_SqlConnectionString);
-  }
+  if (sqlPool) return sqlPool;
+
+  // Acquire an access token for Azure SQL
+  const credential = new DefaultAzureCredential();
+  const tokenResponse = await credential.getToken('https://database.windows.net/.default');
+
+  // Build the config object for mssql
+  const config = {
+    server: 'maanit-server.database.windows.net', // <-- Your server name
+    database: 'maanit-db',                        // <-- Your DB name
+    options: {
+      encrypt: true,
+      trustServerCertificate: false
+    },
+    authentication: {
+      type: 'azure-active-directory-access-token',
+      options: {
+        token: tokenResponse.token
+      }
+    }
+  };
+
+  sqlPool = await sql.connect(config);
   return sqlPool;
 }
 
