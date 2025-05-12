@@ -74,9 +74,9 @@ router.post('/login', rateLimit, async (req, res) => {
     // Get database connection
     const pool = await getSqlPool();
     
-    // Look up user by email
+    // Look up user by email - Fixed column names
     const query = `
-      SELECT id, email, password_hash, Role, status, twoFactorEnabled
+      SELECT id, email, password, Role, status, twoFactorEnabled
       FROM dbo.users 
       WHERE email = @email
     `;
@@ -104,8 +104,8 @@ router.post('/login', rateLimit, async (req, res) => {
       return res.status(401).json({ error: 'Account is inactive' });
     }
     
-    // Compare password with hash
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    // Compare password with hash - Fixed column name
+    const passwordMatch = await bcrypt.compare(password, user.password);
     
     if (!passwordMatch) {
       // Log failed login attempt (for security audit)
@@ -138,12 +138,12 @@ router.post('/login', rateLimit, async (req, res) => {
       { expiresIn: '1h' }
     );
     
-    // Update last login timestamp in database
+    // Update last login timestamp in database - Fixed column name
     await pool.request()
       .input('userId', sql.NVarChar, user.id)
       .query(`
         UPDATE dbo.users 
-        SET lastLogin = GETDATE() 
+        SET last_login = GETDATE() 
         WHERE id = @userId
       `);
     
