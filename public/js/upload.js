@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  // Remove only the checkAuthStatus() call and function
+  // Authentication check removed
 
   // File selection handler
   fileInput.addEventListener('change', function() {
@@ -90,7 +90,8 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       
       if (!response.ok) {
-        // Remove the 401 redirect to login page section
+        // Authentication redirect removed
+        
         let errorText = await response.text();
         try {
           const errorJson = JSON.parse(errorText);
