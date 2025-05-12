@@ -16,13 +16,13 @@
     },
     {
       "route": "/api/users",
-      "allowedRoles": ["authenticated"],
+      "allowedRoles": ["authenticated", "admin"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/users",
       "methods": ["GET", "OPTIONS"]
     },
     {
       "route": "/api/getSasToken",
-      "allowedRoles": ["anonymous", "authenticated"],
+      "allowedRoles": ["authenticated"],
       "rewrite": "https://maanit-func.azurewebsites.net/api/getSasToken",
       "methods": ["GET", "OPTIONS"]
     },
@@ -34,47 +34,20 @@
     {
       "route": "/users.html",
       "allowedRoles": ["authenticated", "admin"],
-      "serve": "/users.html",
-      "statusCode": 200,
-      "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net https://*.blob.core.windows.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-        "X-XSS-Protection": "1; mode=block",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=()"
-      }
+      "statusCode": 401,
+      "serve": "/401.html"
     },
     {
       "route": "/admin.html",
-      "allowedRoles": ["authenticated"],
-      "serve": "/admin.html",
-      "statusCode": 200,
-      "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net https://*.blob.core.windows.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-        "X-XSS-Protection": "1; mode=block",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=()"
-      }
+      "allowedRoles": ["authenticated", "admin"],
+      "statusCode": 401,
+      "serve": "/401.html"
     },
     {
       "route": "/upload.html",
-      "allowedRoles": ["anonymous", "authenticated"],
-      "serve": "/upload.html",
-      "statusCode": 200,
-      "headers": {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.microsoftonline.com https://login.microsoft.com https://maanit-func.azurewebsites.net https://*.blob.core.windows.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-        "X-XSS-Protection": "1; mode=block",
-        "Permissions-Policy": "camera=(), geolocation=(), microphone=()"
-      }
+      "allowedRoles": ["authenticated"],
+      "statusCode": 401,
+      "serve": "/401.html"
     },
     {
       "route": "/",
