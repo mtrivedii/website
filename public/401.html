@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unauthorized Access</title>
+  <link rel="stylesheet" href="style.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+</head>
+<body>
+  <div class="container">
+    <h1>🔒 Unauthorized Access</h1>
+    
+    <div class="card">
+      <h2>Authentication Required</h2>
+      <p>You must be logged in with appropriate permissions to access this page.</p>
+      <div class="button-container">
+        <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button">Login</a>
+        <a href="/" class="button secondary">Return to Home</a>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .card {
+      background-color: #1a1a1a;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 2rem auto;
+      max-width: 500px;
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+    }
+    
+    .button.secondary {
+      background-color: #444;
+      color: white;
+    }
+    
+    .button.secondary:hover {
+      background-color: #555;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</body>
+</html>
