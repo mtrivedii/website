@@ -26,6 +26,12 @@ jobs:
           npm run build --if-present
           npm run test --if-present
 
+      - name: Remove development files
+        run: |
+          rm -rf mocks/
+          rm -f server-dev.js
+          echo "Removed development files"
+
       - name: Zip artifact for deployment
         run: zip -r release.zip ./ -x "node_modules/*"
 

@@ -18,18 +18,18 @@
     <h1>Welcome to Maanit's Web App</h1>
     <p>Good Luck, LOL.</p>
     <div class="button-container">
-      <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button">Login</a>
+      <a href="/login.html" class="button">Login</a>
+      <a href="/registration.html" class="button">Register</a>
       <a href="/users.html" class="button" id="users-link" style="display:none;">User Directory</a>
       <a href="/upload.html" class="button">File Upload</a>
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
-      <a href="/.auth/logout?post_logout_redirect_uri=/" class="button" id="logout-button" style="display:none;">Logout</a>
+      <a href="javascript:logout()" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
     <!-- Debug panel removed -->
   </div>
 
   <script>
     const loadingEl = document.getElementById('loading');
-    // Debug info reference removed
     
     function hideLoader() {
       if (loadingEl) loadingEl.style.display = 'none';
@@ -47,6 +47,16 @@
 
     async function checkAuthStatus() {
       try {
+        // First check for JWT auth cookie
+        const jwtCookie = document.cookie.includes('auth_token=');
+        
+        if (jwtCookie) {
+          document.getElementById('logout-button').style.display = '';
+          checkAdminStatus();
+          return;
+        }
+        
+        // Fall back to Azure AD check
         const authResponse = await fetch('/.auth/me');
         
         if (authResponse.ok) {
@@ -99,7 +109,7 @@
           document.getElementById('admin-panel-link').style.display = '';
           document.getElementById('users-link').style.display = '';
         } else if (adminResponse.status === 401) {
-          window.location.href = '/.auth/login/aad?post_login_redirect_uri=/admin.html';
+          window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
         }
       } catch (error) {
         // Silent error handling
@@ -107,8 +117,13 @@
         hideLoader();
       }
     }
-
-    // Cookie checking removed
+    
+    function logout() {
+      // Clear JWT cookie if present
+      document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      // Also do regular AAD logout
+      window.location.href = "/.auth/logout?post_logout_redirect_uri=/";
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
       checkAuthStatus();
@@ -181,7 +196,6 @@
       background-color: #00ffcc;
       box-shadow: 0 0 10px #00e6b8;
     }
-    /* Debug panel CSS removed */
   </style>
 </body>
 </html>

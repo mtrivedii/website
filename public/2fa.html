@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set Up Two-Factor Authentication</title>
+  <link rel="stylesheet" href="style.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Two-Factor Authentication</h1>
+    
+    <div class="card">
+      <div id="required-notice" style="display: none;" class="required-notice">
+        <div class="warning-icon">⚠️</div>
+        <h3>Required Security Step</h3>
+        <p>Two-factor authentication is required to complete your account setup.</p>
+      </div>
+      
+      <h2>Enhance Your Account Security</h2>
+      
+      <div id="setup-container">
+        <p>Two-factor authentication adds an extra layer of security to your account by requiring both your password and a verification code from your mobile device.</p>
+        
+        <div class="steps">
+          <div class="step">
+            <h3>Step 1: Download an Authenticator App</h3>
+            <p>If you don't already have one, download an authenticator app on your mobile device:</p>
+            <div class="auth-apps">
+              <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" class="auth-app">Google Authenticator</a>
+              <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" target="_blank" class="auth-app">Microsoft Authenticator</a>
+              <a href="https://authy.com/download/" target="_blank" class="auth-app">Authy</a>
+            </div>
+          </div>
+          
+          <div class="step">
+            <h3>Step 2: Scan QR Code</h3>
+            <p>Open your authenticator app and scan this QR code:</p>
+            <div id="qrcode-container" class="qrcode">
+              <div class="spinner"></div>
+              <img id="qrcode" style="display: none;" alt="QR Code for 2FA setup" />
+            </div>
+            <p class="hint">Can't scan? Use this secret key instead:</p>
+            <div id="secret-key" class="secret-key"></div>
+          </div>
+          
+          <div class="step">
+            <h3>Step 3: Verify Setup</h3>
+            <p>Enter the 6-digit verification code from your authenticator app:</p>
+            <div class="code-input-container">
+              <input type="text" id="verification-code" 
+                     placeholder="000000" maxlength="6" 
+                     pattern="[0-9]{6}" 
+                     inputmode="numeric" />
+            </div>
+            <button id="verify-button" class="button">Verify and Activate</button>
+          </div>
+        </div>
+        
+        <div id="setup-message" class="message" style="display: none;"></div>
+      </div>
+      
+      <div id="success-container" style="display: none;">
+        <div class="success-icon">✓</div>
+        <h3>Two-Factor Authentication Activated</h3>
+        <p>Your account is now protected with 2FA. You'll need to enter a verification code from your authenticator app when you log in.</p>
+        <div class="recovery-codes">
+          <h4>Recovery Codes</h4>
+          <p>Save these recovery codes in a secure place. If you lose access to your authenticator app, you can use one of these codes to log in.</p>
+          <div class="code-list" id="recovery-codes-list">
+            <!-- Recovery codes will be inserted here -->
+          </div>
+          <p class="warning">Each code can only be used once. Store them securely.</p>
+        </div>
+        <a href="/login.html" class="button">Proceed to Login</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get parameters from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const userId = urlParams.get('userId');
+      const email = urlParams.get('email');
+      const isRequired = urlParams.get('setup') === 'required';
+      
+      // Show required notice if setup is mandatory
+      if (isRequired) {
+        document.getElementById('required-notice').style.display = 'block';
+      }
+      
+      // If no user info, try to get from localStorage
+      const finalUserId = userId || localStorage.getItem('pendingSetupUserId');
+      const finalEmail = email || localStorage.getItem('pendingSetupEmail');
+      
+      // If still no user info, redirect to registration
+      if (!finalUserId || !finalEmail) {
+        window.location.href = '/register.html';
+        return;
+      }
+      
+      // Store for potential page refreshes
+      localStorage.setItem('pendingSetupUserId', finalUserId);
+      localStorage.setItem('pendingSetupEmail', finalEmail);
+      
+      const qrcodeImage = document.getElementById('qrcode');
+      const secretKey = document.getElementById('secret-key');
+      const verificationCode = document.getElementById('verification-code');
+      const verifyButton = document.getElementById('verify-button');
+      const setupMessage = document.getElementById('setup-message');
+      const setupContainer = document.getElementById('setup-container');
+      const successContainer = document.getElementById('success-container');
+      const recoveryCodesList = document.getElementById('recovery-codes-list');
+      
+      // Function to show a message
+      function showMessage(message, type) {
+        setupMessage.textContent = message;
+        setupMessage.className = `message ${type}`;
+        setupMessage.style.display = 'block';
+      }
+      
+      // Step 1: Set up 2FA (get QR code)
+      async function setup2FA() {
+        try {
+          const response = await fetch('/api/2fa/setup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ userId: finalUserId, email: finalEmail })
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to set up 2FA');
+          }
+          
+          const data = await response.json();
+          
+          // Display QR code and secret key
+          qrcodeImage.src = data.qrCodeUrl;
+          qrcodeImage.style.display = 'block';
+          secretKey.textContent = data.secret;
+          
+          // Store secret for verification
+          window.tempSecret = data.secret;
+        } catch (error) {
+          showMessage(error.message || 'An error occurred during 2FA setup', 'error');
+        }
+      }
+      
+      // Step 2: Verify and activate 2FA
+      async function verify2FA() {
+        const token = verificationCode.value.trim();
+        
+        if (!token || token.length !== 6 || !/^\d+$/.test(token)) {
+          showMessage('Please enter a valid 6-digit verification code', 'error');
+          return;
+        }
+        
+        try {
+          verifyButton.disabled = true;
+          verifyButton.textContent = 'Verifying...';
+          
+          const response = await fetch('/api/2fa/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ userId: finalUserId, token })
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to verify 2FA token');
+          }
+          
+          const data = await response.json();
+          
+          // Clear temporary storage
+          localStorage.removeItem('pendingSetupUserId');
+          localStorage.removeItem('pendingSetupEmail');
+          
+          // Display recovery codes
+          if (data.recoveryCodes && data.recoveryCodes.length > 0) {
+            recoveryCodesList.innerHTML = '';
+            data.recoveryCodes.forEach(code => {
+              const codeElement = document.createElement('code');
+              codeElement.textContent = code;
+              recoveryCodesList.appendChild(codeElement);
+            });
+          }
+          
+          // Show success screen
+          setupContainer.style.display = 'none';
+          successContainer.style.display = 'block';
+        } catch (error) {
+          showMessage(error.message || 'Failed to verify the code', 'error');
+          verifyButton.disabled = false;
+          verifyButton.textContent = 'Verify and Activate';
+        }
+      }
+      
+      // Initialize setup
+      setup2FA();
+      
+      // Add event listener for verify button
+      verifyButton.addEventListener('click', verify2FA);
+      
+      // Allow pressing Enter in the code input
+      verificationCode.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          verify2FA();
+        }
+      });
+    });
+  </script>
+
+  <style>
+    .required-notice {
+      background-color: rgba(255, 204, 0, 0.2);
+      border: 1px solid #ffcc00;
+      border-radius: 5px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .warning-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .auth-apps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin: 1rem 0;
+      justify-content: center;
+    }
+    
+    .auth-app {
+      background-color: #333;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      color: #fff;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border: 1px solid #444;
+    }
+    
+    .auth-app:hover {
+      background-color: #444;
+      transform: translateY(-2px);
+    }
+    
+    .qrcode {
+      width: 200px;
+      height: 200px;
+      margin: 1rem auto;
+      background-color: #fff;
+      padding: 1rem;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .qrcode img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    
+    .steps {
+      margin-top: 2rem;
+    }
+    
+    .step {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #333;
+    }
+    
+    .step:last-child {
+      border-bottom: none;
+    }
+    
+    .step h3 {
+      color: #00e6b8;
+      margin-bottom: 0.5rem;
+    }
+    
+    .secret-key {
+      font-family: monospace;
+      font-size: 1.2rem;
+      background-color: #333;
+      padding: 0.5rem;
+      border-radius: 5px;
+      margin: 1rem 0;
+      user-select: all;
+      text-align: center;
+    }
+    
+    .code-input-container {
+      margin: 1rem 0;
+    }
+    
+    #verification-code {
+      font-family: monospace;
+      font-size: 1.5rem;
+      letter-spacing: 0.5rem;
+      text-align: center;
+      padding: 0.5rem;
+      width: 160px;
+      background-color: #333;
+      color: #fff;
+      border: 2px solid #00e6b8;
+      border-radius: 5px;
+    }
+    
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: #00e6b8;
+      color: #111;
+      font-size: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 0 20px rgba(0, 230, 184, 0.5);
+    }
+    
+    .recovery-codes {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background-color: #222;
+      border-radius: 10px;
+      border: 1px solid #333;
+    }
+    
+    .code-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    
+    .code-list code {
+      font-family: monospace;
+      background-color: #333;
+      padding: 0.5rem;
+      border-radius: 5px;
+      user-select: all;
+    }
+    
+    .warning {
+      color: #ff3366;
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+    
+    .hint {
+      color: #aaa;
+      font-style: italic;
+    }
+    
+    .message {
+      padding: 1rem;
+      border-radius: 5px;
+      margin-top: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .message.success {
+      background-color: rgba(0, 230, 184, 0.2);
+      color: #00e6b8;
+      border: 1px solid #00e6b8;
+    }
+    
+    .message.error {
+      background-color: rgba(255, 51, 102, 0.2);
+      color: #ff3366;
+      border: 1px solid #ff3366;
+    }
+    
+    .message.info {
+      background-color: rgba(51, 204, 255, 0.2);
+      color: #33ccff;
+      border: 1px solid #33ccff;
+    }
+  </style>
+</body>
+</html>

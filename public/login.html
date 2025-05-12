@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Login</h1>
+    
+    <div class="card">
+      <h2>Account Login</h2>
+      
+      <form id="loginForm">
+        <!-- CSRF protection token -->
+        <input type="hidden" id="csrfToken" name="csrfToken" />
+        
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required 
+                 autocomplete="email" />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required 
+                 autocomplete="current-password" />
+        </div>
+        
+        <div class="form-actions">
+          <button type="submit" class="button" id="loginButton">Login</button>
+          <a href="/" class="button secondary">Cancel</a>
+        </div>
+      </form>
+      
+      <div id="loginMessage" class="message" style="display: none;"></div>
+      
+      <p class="register-link">
+        Don't have an account? <a href="/registration.html">Register here</a>
+      </p>
+      
+      <div class="alternative-login">
+        <p>Or login with:</p>
+        <a href="/.auth/login/aad?post_login_redirect_uri=/" class="button azure-button">
+          Microsoft Account
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.getElementById('loginForm');
+      const messageDiv = document.getElementById('loginMessage');
+      
+      // Generate a CSRF token
+      const csrfToken = generateCSRFToken();
+      document.getElementById('csrfToken').value = csrfToken;
+      
+      // Handle form submission
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Collect form data
+        const formData = {
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+          csrfToken: csrfToken
+        };
+        
+        try {
+          // Send login request
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify(formData)
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            // Check if 2FA is required
+            if (data.requireTwoFactor) {
+              // Save user ID and email for the 2FA page
+              localStorage.setItem('pendingAuthUserId', data.userId);
+              localStorage.setItem('pendingAuthEmail', data.email);
+              
+              // Show transition message
+              showMessage('Verification required! Redirecting to 2FA...', 'info');
+              
+              // Redirect to 2FA verification page
+              setTimeout(() => {
+                window.location.href = data.redirectTo || '/2fa-verify.html';
+              }, 1000);
+              return;
+            }
+            
+            // Regular login success (no 2FA)
+            showMessage('Login successful! Redirecting...', 'success');
+            
+            // Redirect after delay
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
+          } else {
+            // Show error message
+            showMessage(`Login failed: ${data.error}`, 'error');
+          }
+        } catch (error) {
+          console.error('Error during login:', error);
+          showMessage('An error occurred during login. Please try again.', 'error');
+        }
+      });
+      
+      // Helper functions
+      function generateCSRFToken() {
+        return Math.random().toString(36).substring(2, 15) + 
+               Math.random().toString(36).substring(2, 15);
+      }
+      
+      function showMessage(message, type) {
+        messageDiv.textContent = message;
+        messageDiv.className = `message ${type}`;
+        messageDiv.style.display = 'block';
+      }
+    });
+  </script>
+
+  <style>
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #00e6b8;
+      font-weight: bold;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    
+    .button.secondary {
+      background-color: #444;
+      color: white;
+    }
+    
+    .button.secondary:hover {
+      background-color: #555;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+    
+    .message {
+      padding: 1rem;
+      border-radius: 5px;
+      margin-top: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .message.success {
+      background-color: rgba(0, 230, 184, 0.2);
+      color: #00e6b8;
+      border: 1px solid #00e6b8;
+    }
+    
+    .message.error {
+      background-color: rgba(255, 51, 102, 0.2);
+      color: #ff3366;
+      border: 1px solid #ff3366;
+    }
+    
+    .message.info {
+      background-color: rgba(51, 204, 255, 0.2);
+      color: #33ccff;
+      border: 1px solid #33ccff;
+    }
+    
+    .register-link {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    
+    .alternative-login {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #333;
+      text-align: center;
+    }
+    
+    .azure-button {
+      background-color: #0078d4;
+      margin-top: 0.5rem;
+    }
+    
+    .azure-button:hover {
+      background-color: #0086f0;
+      box-shadow: 0 0 10px #0078d4;
+    }
+  </style>
+</body>
+</html>
