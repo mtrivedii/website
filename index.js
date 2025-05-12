@@ -8,7 +8,7 @@ const checkAdminHandler = require('./checkAdmin');
 const getSasTokenHandler = require('./getSasToken');
 const usersRouter = require('./users');
 const mfaRouter = require('./mfa');
-const registerRouter = require('./register-api'); // Add this line
+const registerRouter = require('./register'); // Add this line
 const { isMfaEnabled } = require('./mfaUtils');
 const requireAdminDb = require('./requireAdminDb');
 
