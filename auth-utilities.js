@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 
 /**
- * Extracts user info from Azure App Service Easy Auth header.
+ * Extracts userz info from Azure App Service Easy Auth header.
  * Returns an object with userId, username, roles, etc.
  */
 function extractUserInfo(req) {
