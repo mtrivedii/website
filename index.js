@@ -67,7 +67,7 @@ app.get('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 app.post('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 
 // Modified SAS token routes with proper OPTIONS handling for CORS
-app.get('/api/getSasToken', requireAuth, getSasTokenHandler.handler);
+app.get('/api/getSasToken', getSasTokenHandler.handler);
 app.options('/api/getSasToken', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
