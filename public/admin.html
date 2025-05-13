@@ -17,20 +17,23 @@
   <script>
     // Check authentication and render appropriate content
     document.addEventListener('DOMContentLoaded', function() {
+      // Get cookie helper function
+      const getCookie = (name) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+      };
+      
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
-      const container = document.getElementById('content-container');
+      const cookieToken = getCookie('auth_token');
       
-      console.log("Token:", token ? "exists" : "none");
+      console.log("LocalStorage Token:", token ? "exists" : "none");
+      console.log("Cookie Token:", cookieToken ? "exists" : "none");
       console.log("User role:", userRole || "none");
       
-      // Also check cookies for token as fallback
-      let cookieToken = null;
-      const tokenMatch = document.cookie.match(/auth_token=([^;]+)/);
-      if (tokenMatch && tokenMatch[1]) {
-        cookieToken = tokenMatch[1];
-        console.log("Found token in cookie");
-      }
+      const container = document.getElementById('content-container');
       
       // If authenticated as admin, show admin page
       if ((token || cookieToken) && userRole && userRole.toLowerCase() === 'admin') {
