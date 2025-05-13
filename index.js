@@ -80,8 +80,8 @@ function requireAuth(req, res, next) {
 }
 
 // === API Routes ===
-app.get('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
-app.post('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
+app.get('/api/checkAdmin', checkAdminHandler.handler);
+app.post('/api/checkAdmin', checkAdminHandler.handler);
 
 app.get('/api/getSasToken', getSasTokenHandler.handler);
 app.options('/api/getSasToken', (req, res) => {

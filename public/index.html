@@ -23,7 +23,7 @@
       <a href="/users.html" class="button" id="users-link" style="display:none;">User Directory</a>
       <a href="/upload.html" class="button">File Upload</a>
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
-      <a href="javascript:logout()" class="button" id="logout-button" style="display:none;">Logout</a>
+      <a href="#" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
     <!-- Debug panel removed -->
   </div>
@@ -35,81 +35,13 @@
       if (loadingEl) loadingEl.style.display = 'none';
     }
     
-    // Debug console logging function - only logs in development
-    function debugLog(message) {
-      if (localStorage.getItem('enableDebugLogs') === 'true') {
-        console.log(message);
-      }
-    }
-    
-    function handleError(error) {
-      debugLog('Error occurred: ' + error);
-      hideLoader();
-    }
-
-    async function checkAuthStatus() {
-      try {
-        debugLog('Checking authentication status...');
-        
-        // First check for JWT auth cookie
-        const jwtCookie = document.cookie.includes('auth_token=');
-        
-        if (jwtCookie) {
-          debugLog('Found JWT cookie, using local authentication');
-          document.getElementById('logout-button').style.display = '';
-          // Hide login/register when logged in
-          document.getElementById('login-link').style.display = 'none';
-          document.getElementById('register-link').style.display = 'none';
-          checkAdminStatus();
-          return;
-        }
-        
-        debugLog('No JWT cookie found, checking Azure AD authentication');
-        try {
-          // Fall back to Azure AD check
-          const authResponse = await fetch('/.auth/me');
-          
-          if (authResponse.ok) {
-            debugLog('Azure AD authentication successful');
-            try {
-              const responseText = await authResponse.text();
-              const authData = JSON.parse(responseText);
-              
-              // Check if we received the array format instead of clientPrincipal format
-              if (Array.isArray(authData) && authData.length > 0) {
-                // Successfully authenticated - using the array format
-                document.getElementById('logout-button').style.display = '';
-                document.getElementById('login-link').style.display = 'none';
-                document.getElementById('register-link').style.display = 'none';
-                checkAdminStatus();
-              } else if (authData && authData.clientPrincipal) {
-                // Original expected format with clientPrincipal
-                document.getElementById('logout-button').style.display = '';
-                document.getElementById('login-link').style.display = 'none';
-                document.getElementById('register-link').style.display = 'none';
-                checkAdminStatus();
-              } else {
-                debugLog('Azure AD response format not recognized');
-                hideLoader();
-              }
-            } catch (parseError) {
-              debugLog('Error parsing Azure AD response: ' + parseError);
-              hideLoader();
-            }
-          } else {
-            debugLog('Azure AD authentication failed with status: ' + authResponse.status);
-            hideLoader();
-          }
-        } catch (aadError) {
-          // This is expected when there's no Azure AD authentication
-          debugLog('Azure AD check failed: ' + aadError);
-          hideLoader();
-        }
-      } catch (error) {
-        handleError(error);
+    function debugLog(msg) {
+      if (window.location.hostname === "localhost" || localStorage.getItem('enableDebugLogs') === 'true') {
+        console.log(msg);
       }
     }
 
+    // Show/hide admin links based on admin status
     async function checkAdminStatus() {
       try {
         debugLog('Checking admin status...');
@@ -120,15 +52,24 @@
           hideLoader();
         }, 10000);
 
+        // Prepare headers: send JWT from localStorage if present
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const adminResponse = await fetch('/api/checkAdmin', {
           signal: controller.signal,
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
+          headers,
+          credentials: 'include'
         });
 
         clearTimeout(timeoutId);
+
         debugLog('Admin check response status: ' + adminResponse.status);
 
         if (adminResponse.status === 200) {
@@ -140,27 +81,80 @@
           window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
         } else {
           debugLog('Not an admin or other error: ' + adminResponse.status);
+          document.getElementById('admin-panel-link').style.display = 'none';
+          document.getElementById('users-link').style.display = 'none';
         }
       } catch (error) {
         debugLog('Error checking admin status: ' + error);
+        document.getElementById('admin-panel-link').style.display = 'none';
+        document.getElementById('users-link').style.display = 'none';
       } finally {
         hideLoader();
       }
     }
-    
+
+    // Check authentication status on page load
+    async function checkAuthStatus() {
+      debugLog('Page loaded, checking auth status');
+      // Check for JWT in localStorage
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        debugLog('Found JWT in localStorage, using local authentication');
+        document.getElementById('logout-button').style.display = '';
+        document.getElementById('login-link').style.display = 'none';
+        document.getElementById('register-link').style.display = 'none';
+        await checkAdminStatus();
+        return;
+      }
+
+      // Optionally, try Azure AD Easy Auth as fallback
+      debugLog('No JWT found, checking Azure AD authentication');
+      try {
+        const resp = await fetch('/.auth/me', { credentials: 'include' });
+        if (resp.status === 200) {
+          debugLog('Azure AD authentication succeeded');
+          document.getElementById('logout-button').style.display = '';
+          document.getElementById('login-link').style.display = 'none';
+          document.getElementById('register-link').style.display = 'none';
+          await checkAdminStatus();
+          return;
+        } else {
+          debugLog('Azure AD authentication failed with status: ' + resp.status);
+        }
+      } catch (err) {
+        debugLog('Azure AD authentication check error: ' + err);
+      }
+      // Not authenticated
+      document.getElementById('logout-button').style.display = 'none';
+      document.getElementById('admin-panel-link').style.display = 'none';
+      document.getElementById('users-link').style.display = 'none';
+      document.getElementById('login-link').style.display = '';
+      document.getElementById('register-link').style.display = '';
+      hideLoader();
+    }
+
+    // Logout function
     function logout() {
       debugLog('Logging out...');
       // Clear JWT cookie if present
       document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      // Also do regular AAD logout
+      // Clear localStorage token and user info
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('user_email');
+      // Also do regular AAD logout (if used)
       window.location.href = "/.auth/logout?post_logout_redirect_uri=/";
     }
 
-    // Enable debug logs temporarily
+    // Enable debug logs
     localStorage.setItem('enableDebugLogs', 'true');
     
-    window.addEventListener('DOMContentLoaded', () => {
-      debugLog('Page loaded, checking auth status');
+    // Attach logout handler and run auth check on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const logoutBtn = document.getElementById('logout-button');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+      }
       checkAuthStatus();
       setTimeout(hideLoader, 15000);
     });

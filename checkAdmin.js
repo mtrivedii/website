@@ -22,9 +22,16 @@ function getSqlPool() {
 async function handler(req, res) {
   console.log('Request headers:', JSON.stringify(req.headers));
   console.log('Request cookies:', JSON.stringify(req.cookies));
-  
+
+  // --- JWT extraction from cookie or Authorization header ---
+  let authToken = req.cookies?.auth_token;
+  const authHeader = req.headers.authorization;
+  if (!authToken && authHeader && authHeader.startsWith('Bearer ')) {
+    authToken = authHeader.split(' ')[1];
+  }
+  // ---------------------------------------------------------
+
   // Check for JWT token first
-  const authToken = req.cookies?.auth_token;
   if (authToken) {
     try {
       // Verify the JWT token
