@@ -48,6 +48,21 @@
   </div>
 
   <script>
+    // Check if user is authenticated
+    document.addEventListener('DOMContentLoaded', function() {
+      const token = localStorage.getItem('auth_token');
+      const userRole = localStorage.getItem('user_role');
+      
+      // If no token or not an admin, redirect to login
+      if (!token || (userRole && userRole.toLowerCase() !== 'admin')) {
+        window.location.href = '/login.html';
+        return;
+      }
+      
+      // If authenticated as admin, load users
+      loadUsers();
+    });
+  
     // State management for user data and pagination
     const state = {
       users: [],
@@ -112,13 +127,22 @@
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
       
+      // Get JWT token for authentication
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      };
+      
+      // Add Authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       // Try to fetch from API first
       fetch('/api/users', {
         method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        },
+        headers: headers,
         credentials: 'include'
       })
       .then(response => {
@@ -350,9 +374,6 @@
       state.currentPage = 1;
       renderUsers();
     }
-    
-    // Initialize with automatic load when DOM is ready
-    document.addEventListener('DOMContentLoaded', loadUsers);
   </script>
 </body>
 </html>

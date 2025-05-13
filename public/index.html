@@ -19,31 +19,15 @@
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
       <button id="logout-button" class="button" style="display:none;">Logout</button>
     </div>
-    
-    <div id="auth-status" style="margin-top: 20px; background: #222; padding: 15px; border-radius: 8px; font-family: monospace; max-width: 800px; margin-left: auto; margin-right: auto;">
-      <h3 style="color: #00e6b8; margin-top: 0;">Auth Status</h3>
-      <div id="debug-log"></div>
-    </div>
   </div>
   
   <script>
-    // Function to log to the page
-    function debugLog(message) {
-      const logContainer = document.getElementById('debug-log');
-      const timestamp = new Date().toLocaleTimeString();
-      const entry = document.createElement('div');
-      entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
-      logContainer.appendChild(entry);
-      console.log(message);
-    }
-    
     // Check token and update UI
     function checkToken() {
       const token = localStorage.getItem('auth_token');
+      const userRole = localStorage.getItem('user_role');
       
       if (token) {
-        debugLog('Found JWT in localStorage');
-        
         // Show authenticated UI
         document.getElementById('logout-button').style.display = '';
         document.getElementById('login-link').style.display = 'none';
@@ -54,25 +38,22 @@
           const parts = token.split('.');
           if (parts.length === 3) {
             const payload = JSON.parse(atob(parts[1]));
-            debugLog(`Token payload: userId=${payload.userId}, email=${payload.email}, role=${payload.role || 'none'}`);
             
             // Store user info 
             if (payload.email) localStorage.setItem('user_email', payload.email);
             if (payload.role) localStorage.setItem('user_role', payload.role);
-            
-            // If role is admin, show admin links
-            if (payload.role && payload.role.toLowerCase() === 'admin') {
-              debugLog('Admin role detected in token, showing admin links');
-              document.getElementById('admin-panel-link').style.display = '';
-              document.getElementById('users-link').style.display = '';
-            }
           }
         } catch (e) {
-          debugLog(`Error decoding token: ${e.message}`);
+          console.error('Error decoding token:', e);
+        }
+        
+        // Check for admin role (from token or localStorage)
+        const isAdmin = userRole && userRole.toLowerCase() === 'admin';
+        if (isAdmin) {
+          document.getElementById('admin-panel-link').style.display = '';
+          document.getElementById('users-link').style.display = '';
         }
       } else {
-        debugLog('No auth token found in localStorage');
-        
         // Show non-authenticated UI
         document.getElementById('logout-button').style.display = 'none';
         document.getElementById('admin-panel-link').style.display = 'none';
@@ -89,16 +70,12 @@
       localStorage.removeItem('user_email');
       document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       
-      debugLog('Logged out - token cleared');
-      
       // Reload page
       window.location.reload();
     }
     
     // Run when page loads
     document.addEventListener('DOMContentLoaded', function() {
-      debugLog('Page loaded, checking auth status');
-      
       // Setup event listeners
       document.getElementById('logout-button').addEventListener('click', logout);
       
