@@ -43,47 +43,127 @@
       <p class="register-link">
         Don't have an account? <a href="/registration.html">Register here</a>
       </p>
-  
+
+      <!-- Debug section, can be removed in production -->
+      <div id="debugSection" style="margin-top: 20px; display: none; text-align: left; background: #222; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+        <h3 style="color: #00e6b8; margin-top: 0;">Debug Information</h3>
+        <div id="debugOutput"></div>
+      </div>
     </div>
   </div>
 
   <script>
+    // Enable debug mode (remove in production)
+    const DEBUG_MODE = true;
+    
+    function debugLog(message) {
+      if (DEBUG_MODE) {
+        console.log(message);
+        const debugSection = document.getElementById('debugSection');
+        const debugOutput = document.getElementById('debugOutput');
+        
+        if (debugSection && debugOutput) {
+          debugSection.style.display = 'block';
+          const timestamp = new Date().toLocaleTimeString();
+          const entry = document.createElement('div');
+          entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+          debugOutput.appendChild(entry);
+        }
+      }
+    }
+    
+    // Helper function to check all cookies
+    function checkCookies() {
+      debugLog('Checking all cookies: ' + document.cookie);
+      const cookies = document.cookie.split(';');
+      
+      if (cookies.length === 0 || (cookies.length === 1 && cookies[0] === '')) {
+        debugLog('No cookies found');
+      } else {
+        cookies.forEach(cookie => {
+          const [name, value] = cookie.trim().split('=');
+          debugLog(`Cookie found: ${name} = ${value ? (value.length > 10 ? value.substring(0, 10) + '...' : value) : '[empty]'}`);
+        });
+      }
+      
+      // Check specifically for auth_token
+      const hasAuthToken = document.cookie.includes('auth_token=');
+      debugLog('Auth token present: ' + hasAuthToken);
+      
+      return hasAuthToken;
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+      debugLog('Page loaded, checking for existing authentication');
+      checkCookies();
+      
       const form = document.getElementById('loginForm');
       const messageDiv = document.getElementById('loginMessage');
       
       // Generate a CSRF token
       const csrfToken = generateCSRFToken();
       document.getElementById('csrfToken').value = csrfToken;
+      debugLog('CSRF token generated: ' + csrfToken.substring(0, 8) + '...');
       
       // Handle form submission
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
+        debugLog('Login form submitted');
         
         // Collect form data
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
         const formData = {
-          email: document.getElementById('email').value,
-          password: document.getElementById('password').value,
+          email: email,
+          password: password,
           csrfToken: csrfToken
         };
         
+        debugLog(`Attempting login for: ${email}`);
+        showMessage('Logging in...', 'info');
+        
         try {
           // Send login request
+          debugLog('Sending login request to /api/login');
           const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRF-Token': csrfToken
             },
-            credentials: 'include',
+            credentials: 'include', // Important for cookies
             body: JSON.stringify(formData)
           });
           
+          debugLog(`Login response status: ${response.status}`);
+          
+          // Check response headers
+          const responseHeaders = {};
+          response.headers.forEach((value, name) => {
+            responseHeaders[name] = value;
+            if (name.toLowerCase().includes('cookie') || name.toLowerCase() === 'set-cookie') {
+              debugLog(`Response header: ${name}: ${value}`);
+            }
+          });
+          
           const data = await response.json();
+          debugLog('Login response data: ' + JSON.stringify(data));
           
           if (response.ok) {
+            // Check for cookies after successful login
+            setTimeout(() => {
+              debugLog('Checking cookies after login response:');
+              const hasAuthCookie = checkCookies();
+              
+              if (!hasAuthCookie) {
+                debugLog('WARNING: Auth cookie not found after successful login!');
+              }
+            }, 500);
+            
             // Check if 2FA is required
             if (data.requireTwoFactor) {
+              debugLog('2FA required, saving user info for 2FA verification');
               // Save user ID and email for the 2FA page
               localStorage.setItem('pendingAuthUserId', data.userId);
               localStorage.setItem('pendingAuthEmail', data.email);
@@ -93,23 +173,36 @@
               
               // Redirect to 2FA verification page
               setTimeout(() => {
-                window.location.href = data.redirectTo || '/2fa-verify.html';
+                const redirectTo = data.redirectTo || '/2fa-verify.html';
+                debugLog('Redirecting to: ' + redirectTo);
+                window.location.href = redirectTo;
               }, 1000);
               return;
             }
             
             // Regular login success (no 2FA)
+            debugLog('Login successful, preparing to redirect');
             showMessage('Login successful! Redirecting...', 'success');
             
-            // Redirect after delay
+            // Check cookies before redirect
             setTimeout(() => {
+              checkCookies();
+              
+              // Try to manually set a cookie for testing
+              debugLog('Setting a test cookie to verify cookie functionality');
+              document.cookie = "test_cookie=cookievalue; path=/";
+              
+              // Redirect after delay
+              debugLog('Redirecting to home page');
               window.location.href = '/';
             }, 1000);
           } else {
             // Show error message
-            showMessage(`Login failed: ${data.error}`, 'error');
+            debugLog('Login failed: ' + (data.error || 'Unknown error'));
+            showMessage(`Login failed: ${data.error || 'Unknown error'}`, 'error');
           }
         } catch (error) {
+          debugLog('Error during login: ' + error.message);
           console.error('Error during login:', error);
           showMessage('An error occurred during login. Please try again.', 'error');
         }
@@ -191,23 +284,6 @@
       margin-top: 1.5rem;
       text-align: center;
       font-size: 0.9rem;
-    }
-    
-    .alternative-login {
-      margin-top: 2rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid #333;
-      text-align: center;
-    }
-    
-    .azure-button {
-      background-color: #0078d4;
-      margin-top: 0.5rem;
-    }
-    
-    .azure-button:hover {
-      background-color: #0086f0;
-      box-shadow: 0 0 10px #0078d4;
     }
   </style>
 </body>
