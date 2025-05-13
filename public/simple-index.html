@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple Index</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to Maanit's Web App</h1>
+    <p>Good Luck, LOL.</p>
+    
+    <div class="button-container">
+      <a href="/login.html" class="button" id="login-link">Login</a>
+      <a href="/registration.html" class="button" id="register-link">Register</a>
+      <a href="/users.html" class="button" id="users-link" style="display:none;">User Directory</a>
+      <a href="/upload.html" class="button">File Upload</a>
+      <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
+      <button id="logout-button" class="button" style="display:none;">Logout</button>
+    </div>
+    
+    <div id="auth-status" style="margin-top: 20px; background: #222; padding: 15px; border-radius: 8px; font-family: monospace; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <h3 style="color: #00e6b8; margin-top: 0;">Auth Status</h3>
+      <div id="token-info"></div>
+      <div id="admin-check-result" style="margin-top: 10px;"></div>
+      <div style="margin-top: 10px;">
+        <button id="check-admin-btn" class="button">Check Admin Status</button>
+        <button id="clear-token-btn" class="button">Clear Token</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Function to log to the page
+    function log(elementId, message) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const timestamp = new Date().toLocaleTimeString();
+        element.innerHTML += `<div><span style="color: #888;">[${timestamp}]</span> ${message}</div>`;
+      }
+      console.log(message);
+    }
+    
+    // Check token and update UI
+    function checkToken() {
+      const tokenInfo = document.getElementById('token-info');
+      tokenInfo.innerHTML = '';
+      
+      const token = localStorage.getItem('auth_token');
+      
+      if (token) {
+        log('token-info', 'Token found in localStorage ✅');
+        
+        // Try to decode the token
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            log('token-info', `Token payload: userId=${payload.userId}, email=${payload.email}, role=${payload.role || 'none'}`);
+            
+            // Show/hide UI elements based on authentication
+            document.getElementById('logout-button').style.display = '';
+            document.getElementById('login-link').style.display = 'none';
+            document.getElementById('register-link').style.display = 'none';
+            
+            // If role is admin, show admin links
+            if (payload.role && payload.role.toLowerCase() === 'admin') {
+              log('token-info', 'Admin role detected in token, showing admin links');
+              document.getElementById('admin-panel-link').style.display = '';
+              document.getElementById('users-link').style.display = '';
+            }
+          }
+        } catch (e) {
+          log('token-info', `Error decoding token: ${e.message}`);
+        }
+      } else {
+        log('token-info', 'No auth token found in localStorage ❌');
+        
+        // Hide authenticated UI elements
+        document.getElementById('logout-button').style.display = 'none';
+        document.getElementById('admin-panel-link').style.display = 'none';
+        document.getElementById('users-link').style.display = 'none';
+        document.getElementById('login-link').style.display = '';
+        document.getElementById('register-link').style.display = '';
+      }
+    }
+    
+    // Check admin status with server
+    async function checkAdminStatus() {
+      const resultElement = document.getElementById('admin-check-result');
+      resultElement.innerHTML = '';
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        log('admin-check-result', 'No token found. Cannot check admin status.');
+        return;
+      }
+      
+      log('admin-check-result', 'Sending admin check request to server...');
+      
+      try {
+        const response = await fetch('/api/checkAdmin', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        log('admin-check-result', `Server response status: ${response.status}`);
+        
+        const text = await response.text();
+        log('admin-check-result', `Response body: ${text}`);
+        
+        if (response.ok) {
+          log('admin-check-result', '✅ Admin access confirmed by server');
+          document.getElementById('admin-panel-link').style.display = '';
+          document.getElementById('users-link').style.display = '';
+        } else {
+          log('admin-check-result', '❌ Server denied admin access');
+        }
+      } catch (error) {
+        log('admin-check-result', `Error: ${error.message}`);
+      }
+    }
+    
+    // Handle logout
+    function logout() {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('user_email');
+      document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      
+      log('token-info', 'Logged out - token cleared');
+      
+      // Update UI
+      document.getElementById('logout-button').style.display = 'none';
+      document.getElementById('admin-panel-link').style.display = 'none';
+      document.getElementById('users-link').style.display = 'none';
+      document.getElementById('login-link').style.display = '';
+      document.getElementById('register-link').style.display = '';
+      
+      // Reload page to ensure all state is reset
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+    
+    // Run when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      // Setup event listeners
+      document.getElementById('logout-button').addEventListener('click', logout);
+      document.getElementById('check-admin-btn').addEventListener('click', checkAdminStatus);
+      document.getElementById('clear-token-btn').addEventListener('click', function() {
+        localStorage.removeItem('auth_token');
+        log('token-info', 'Token cleared from localStorage');
+        checkToken();
+      });
+      
+      // Check token on page load
+      checkToken();
+    });
+  </script>
+  
+  <style>
+    .container {
+      max-width: 900px;
+      margin: 50px auto;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    h1 {
+      color: #00e6b8;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+    
+    .button-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 30px 0;
+    }
+    
+    .button {
+      background-color: #00e6b8;
+      color: black;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .button:hover {
+      background-color: #00ffcc;
+      box-shadow: 0 0 10px #00e6b8;
+    }
+  </style>
+</body>
+</html>
