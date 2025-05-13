@@ -5,72 +5,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Directory</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Only keep the cache control headers which are safe in meta tags -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 </head>
 <body>
-  <div class="container">
-    <h1>👥 User Directory</h1>
-    
-    <div class="filter-container">
-      <div class="search-filters">
-        <div class="filter-group">
-          <label for="searchInput">Search:</label>
-          <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
-        </div>
-        <div class="filter-group">
-          <label for="roleFilter">Role:</label>
-          <select id="roleFilter" class="role-select">
-            <option value="">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="user">User</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    
-    <div id="users" class="table-container">
-      <div class="spinner"></div>
-    </div>
-    
-    <div id="pagination" class="pagination hidden">
-      <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
-      <span id="pageInfo" class="page-info">Page 1 of 1</span>
-      <button id="nextPage" class="button pagination-button">Next &raquo;</button>
-    </div>
-    
-    <div class="button-container">
-      <a class="button" href="index.html">← Home</a>
-      <button id="refreshButton" class="button">Refresh Data</button>
-      <button id="logout-button" class="button warning">Logout</button>
-    </div>
+  <div id="content-container">
+    <!-- Content will be loaded dynamically -->
   </div>
 
   <script>
-    // Check if user is authenticated and has admin role
+    // Check authentication and render appropriate content
     document.addEventListener('DOMContentLoaded', function() {
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
+      const container = document.getElementById('content-container');
       
-      // If no token or not an admin, redirect to login
-      if (!token || !userRole || userRole.toLowerCase() !== 'admin') {
-        window.location.href = '/login.html';
-        return;
+      console.log("Token:", token ? "exists" : "none");
+      console.log("User role:", userRole || "none");
+      
+      // If authenticated as admin, show users page
+      if (token && userRole && userRole.toLowerCase() === 'admin') {
+        container.innerHTML = `
+          <div class="container">
+            <h1>👥 User Directory</h1>
+            
+            <div class="filter-container">
+              <div class="search-filters">
+                <div class="filter-group">
+                  <label for="searchInput">Search:</label>
+                  <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
+                </div>
+                <div class="filter-group">
+                  <label for="roleFilter">Role:</label>
+                  <select id="roleFilter" class="role-select">
+                    <option value="">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div id="users" class="table-container">
+              <div class="spinner"></div>
+            </div>
+            
+            <div id="pagination" class="pagination hidden">
+              <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
+              <span id="pageInfo" class="page-info">Page 1 of 1</span>
+              <button id="nextPage" class="button pagination-button">Next &raquo;</button>
+            </div>
+            
+            <div class="button-container">
+              <a class="button" href="index.html">← Home</a>
+              <button id="refreshButton" class="button">Refresh Data</button>
+              <button id="logout-button" class="button warning">Logout</button>
+            </div>
+          </div>
+        `;
+        
+        // Add logout functionality
+        document.getElementById('logout-button').addEventListener('click', function() {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('user_email');
+          document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          window.location.href = '/';
+        });
+        
+        // Initialize users data
+        loadUsers();
+      } 
+      // If not authenticated or not admin, show unauthorized page
+      else {
+        container.innerHTML = `
+          <div class="container">
+            <h1>🔒 Unauthorized Access</h1>
+            
+            <div class="card">
+              <h2>Authentication Required</h2>
+              <p>You must be logged in with appropriate permissions to access this page.</p>
+              <div class="button-container">
+                <a href="/login.html" class="button">Login</a>
+                <a href="/" class="button secondary">Return to Home</a>
+              </div>
+            </div>
+          </div>
+        `;
       }
-      
-      // Add logout functionality
-      document.getElementById('logout-button').addEventListener('click', function() {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_email');
-        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        window.location.href = '/';
-      });
-      
-      // If authenticated as admin, load users
-      loadUsers();
     });
   
     // State management for user data and pagination
@@ -133,6 +156,7 @@
     // Initialize the data and render the table
     function loadUsers() {
       const target = document.getElementById("users");
+      if (!target) return; // Exit if element not found (page not loaded yet)
       
       // Show loading spinner
       target.innerHTML = '<div class="spinner"></div>';
@@ -233,6 +257,8 @@
       if (!state.loaded) return;
       
       const target = document.getElementById("users");
+      if (!target) return; // Exit if element not found
+      
       const paginationElement = document.getElementById("pagination");
       const pageInfo = document.getElementById("pageInfo");
       const prevButton = document.getElementById("prevPage");
@@ -334,6 +360,8 @@
       const searchInput = document.getElementById("searchInput");
       const roleFilter = document.getElementById("roleFilter");
       
+      if (!searchInput || !roleFilter) return; // Exit if elements not found
+      
       // Add event listeners
       searchInput.addEventListener("input", applyFilters);
       roleFilter.addEventListener("change", applyFilters);
@@ -366,8 +394,13 @@
     
     // Apply filters based on search input and role selection
     function applyFilters() {
-      const searchTerm = document.getElementById("searchInput").value.toLowerCase();
-      const roleFilter = document.getElementById("roleFilter").value.toLowerCase();
+      const searchInput = document.getElementById("searchInput");
+      const roleFilter = document.getElementById("roleFilter");
+      
+      if (!searchInput || !roleFilter) return; // Exit if elements not found
+      
+      const searchTerm = searchInput.value.toLowerCase();
+      const roleFilterValue = roleFilter.value.toLowerCase();
       
       // Filter the users based on search term and role
       state.filteredUsers = state.users.filter(user => {
@@ -375,7 +408,7 @@
         const role = (user.role || user.Role || '').toLowerCase();
         
         const matchesSearch = !searchTerm || email.includes(searchTerm);
-        const matchesRole = !roleFilter || role === roleFilter;
+        const matchesRole = !roleFilterValue || role === roleFilterValue;
         
         return matchesSearch && matchesRole;
       });
@@ -387,6 +420,15 @@
   </script>
   
   <style>
+    .card {
+      background-color: #1a1a1a;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 2rem auto;
+      max-width: 500px;
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+    }
+    
     .button.warning {
       background-color: #ff3366;
       color: white;
@@ -395,6 +437,16 @@
     .button.warning:hover {
       background-color: #ff4d7d;
       box-shadow: 0 0 10px rgba(255, 51, 102, 0.7);
+    }
+    
+    .button.secondary {
+      background-color: #444;
+      color: white;
+    }
+    
+    .button.secondary:hover {
+      background-color: #555;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     }
   </style>
 </body>

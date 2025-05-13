@@ -5,64 +5,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel</title>
   <link rel="stylesheet" href="style.css?v=1.0.0">
-  <!-- Add cache control meta tags -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <!-- Add CSP header in HTML as a fallback -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'">
 </head>
 <body>
-  <div class="container">
-    <h1>🔐 Admin Control Panel</h1>
-    <p>Welcome to the administrator control panel. From here you can manage system settings and user permissions.</p>
-    
-    <div class="admin-dashboard">
-      <div class="admin-card">
-        <h2>🔍 System Status</h2>
-        <p>All systems operational</p>
-        <div class="status-indicator active"></div>
-      </div>
-      
-      <div class="admin-card">
-        <h2>👥 User Management</h2>
-        <p>Current active users: <strong>1</strong></p>
-        <a href="/users.html" class="button">Manage Users</a>
-      </div>
-      
-      <div class="admin-card">
-        <h2>📊 Security Logs</h2>
-        <p>View detailed application telemetry and logs</p>
-        <a href="https://portal.azure.com/#@fictproftaak35.onmicrosoft.com/dashboard/arm/subscriptions/72d9a9a5-803a-45fc-a4f1-55bd3a1c4a93/resourcegroups/secure-app-rg/providers/microsoft.portal/dashboards/a9c2140c-5a74-4939-920f-473810286846-dashboard" class="button" target="_blank">Open Azure Logs</a>
-      </div>
-    </div>
-    
-    <div class="button-container">
-      <a class="button secondary" href="index.html">← Back to Home</a>
-      <button id="logout-button" class="button warning">Logout</button>
-    </div>
+  <div id="content-container">
+    <!-- Content will be loaded dynamically -->
   </div>
   
   <script>
-    // Check if user is authenticated and has admin role
+    // Check authentication and render appropriate content
     document.addEventListener('DOMContentLoaded', function() {
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
+      const container = document.getElementById('content-container');
       
-      // If no token or not an admin, redirect to login
-      if (!token || !userRole || userRole.toLowerCase() !== 'admin') {
-        window.location.href = '/login.html';
-        return;
+      console.log("Token:", token ? "exists" : "none");
+      console.log("User role:", userRole || "none");
+      
+      // If authenticated as admin, show admin page
+      if (token && userRole && userRole.toLowerCase() === 'admin') {
+        container.innerHTML = `
+          <div class="container">
+            <h1>🔐 Admin Control Panel</h1>
+            <p>Welcome to the administrator control panel. From here you can manage system settings and user permissions.</p>
+            
+            <div class="admin-dashboard">
+              <div class="admin-card">
+                <h2>🔍 System Status</h2>
+                <p>All systems operational</p>
+                <div class="status-indicator active"></div>
+              </div>
+              
+              <div class="admin-card">
+                <h2>👥 User Management</h2>
+                <p>Current active users: <strong>1</strong></p>
+                <a href="/users.html" class="button">Manage Users</a>
+              </div>
+              
+              <div class="admin-card">
+                <h2>📊 Security Logs</h2>
+                <p>View detailed application telemetry and logs</p>
+                <a href="https://portal.azure.com/#@fictproftaak35.onmicrosoft.com/dashboard/arm/subscriptions/72d9a9a5-803a-45fc-a4f1-55bd3a1c4a93/resourcegroups/secure-app-rg/providers/microsoft.portal/dashboards/a9c2140c-5a74-4939-920f-473810286846-dashboard" class="button" target="_blank">Open Azure Logs</a>
+              </div>
+            </div>
+            
+            <div class="button-container">
+              <a class="button secondary" href="index.html">← Back to Home</a>
+              <button id="logout-button" class="button warning">Logout</button>
+            </div>
+          </div>
+        `;
+        
+        // Add logout functionality
+        document.getElementById('logout-button').addEventListener('click', function() {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('user_email');
+          document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          window.location.href = '/';
+        });
+      } 
+      // If not authenticated or not admin, show unauthorized page
+      else {
+        container.innerHTML = `
+          <div class="container">
+            <h1>🔒 Unauthorized Access</h1>
+            
+            <div class="card">
+              <h2>Authentication Required</h2>
+              <p>You must be logged in with appropriate permissions to access this page.</p>
+              <div class="button-container">
+                <a href="/login.html" class="button">Login</a>
+                <a href="/" class="button secondary">Return to Home</a>
+              </div>
+            </div>
+          </div>
+        `;
       }
-      
-      // Add logout functionality
-      document.getElementById('logout-button').addEventListener('click', function() {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_email');
-        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        window.location.href = '/';
-      });
     });
   </script>
   
@@ -126,6 +148,15 @@
     .button.warning:hover {
       background-color: #ff4d7d;
       box-shadow: 0 0 10px rgba(255, 51, 102, 0.7);
+    }
+    
+    .card {
+      background-color: #1a1a1a;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 2rem auto;
+      max-width: 500px;
+      box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
     }
   </style>
 </body>
