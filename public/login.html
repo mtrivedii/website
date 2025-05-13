@@ -44,7 +44,7 @@
         Don't have an account? <a href="/registration.html">Register here</a>
       </p>
 
-      <!-- Debug section, can be removed in production -->
+      <!-- Debug section - only visible during development -->
       <div id="debugSection" style="margin-top: 20px; display: none; text-align: left; background: #222; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
         <h3 style="color: #00e6b8; margin-top: 0;">Debug Information</h3>
         <div id="debugOutput"></div>
@@ -53,8 +53,8 @@
   </div>
 
   <script>
-    // Enable debug mode (remove in production)
-    const DEBUG_MODE = true;
+    // Debug mode toggle - set to false for production
+    const DEBUG_MODE = window.location.hostname === 'localhost' || localStorage.getItem('debugMode') === 'true';
     
     function debugLog(message) {
       if (DEBUG_MODE) {
@@ -72,30 +72,8 @@
       }
     }
     
-    // Helper function to check all cookies
-    function checkCookies() {
-      debugLog('Checking all cookies: ' + document.cookie);
-      const cookies = document.cookie.split(';');
-      
-      if (cookies.length === 0 || (cookies.length === 1 && cookies[0] === '')) {
-        debugLog('No cookies found');
-      } else {
-        cookies.forEach(cookie => {
-          const [name, value] = cookie.trim().split('=');
-          debugLog(`Cookie found: ${name} = ${value ? (value.length > 10 ? value.substring(0, 10) + '...' : value) : '[empty]'}`);
-        });
-      }
-      
-      // Check specifically for auth_token
-      const hasAuthToken = document.cookie.includes('auth_token=');
-      debugLog('Auth token present: ' + hasAuthToken);
-      
-      return hasAuthToken;
-    }
-    
     document.addEventListener('DOMContentLoaded', function() {
-      debugLog('Page loaded, checking for existing authentication');
-      checkCookies();
+      debugLog('Login page loaded');
       
       const form = document.getElementById('loginForm');
       const messageDiv = document.getElementById('loginMessage');
@@ -103,7 +81,7 @@
       // Generate a CSRF token
       const csrfToken = generateCSRFToken();
       document.getElementById('csrfToken').value = csrfToken;
-      debugLog('CSRF token generated: ' + csrfToken.substring(0, 8) + '...');
+      debugLog('CSRF token generated');
       
       // Handle form submission
       form.addEventListener('submit', async function(e) {
@@ -132,79 +110,73 @@
               'Content-Type': 'application/json',
               'X-CSRF-Token': csrfToken
             },
-            credentials: 'include', // Important for cookies
+            credentials: 'include',
             body: JSON.stringify(formData)
           });
           
           debugLog(`Login response status: ${response.status}`);
           
-          // Check response headers
-          const responseHeaders = {};
-          response.headers.forEach((value, name) => {
-            responseHeaders[name] = value;
-            if (name.toLowerCase().includes('cookie') || name.toLowerCase() === 'set-cookie') {
-              debugLog(`Response header: ${name}: ${value}`);
-            }
-          });
-          
           const data = await response.json();
-          debugLog('Login response data: ' + JSON.stringify(data));
+          debugLog('Login response received');
           
           if (response.ok) {
-            // Check for cookies after successful login
-            setTimeout(() => {
-              debugLog('Checking cookies after login response:');
-              const hasAuthCookie = checkCookies();
-              
-              if (!hasAuthCookie) {
-                debugLog('WARNING: Auth cookie not found after successful login!');
-              }
-            }, 500);
-            
             // Check if 2FA is required
             if (data.requireTwoFactor) {
-              debugLog('2FA required, saving user info for 2FA verification');
+              debugLog('2FA required');
               // Save user ID and email for the 2FA page
               localStorage.setItem('pendingAuthUserId', data.userId);
               localStorage.setItem('pendingAuthEmail', data.email);
               
               // Show transition message
-              showMessage('Verification required! Redirecting to 2FA...', 'info');
+              showMessage('Verification required! Redirecting...', 'info');
               
               // Redirect to 2FA verification page
               setTimeout(() => {
                 const redirectTo = data.redirectTo || '/2fa-verify.html';
-                debugLog('Redirecting to: ' + redirectTo);
                 window.location.href = redirectTo;
               }, 1000);
               return;
             }
             
-            // Regular login success (no 2FA)
-            debugLog('Login successful, preparing to redirect');
+            // Store auth token in localStorage for JWT-based authentication
+            if (data.token) {
+              // If server returns token directly (preferred)
+              localStorage.setItem('auth_token', data.token);
+              debugLog('Token stored in localStorage');
+            } else {
+              // Try to extract from cookie (fallback)
+              const tokenMatch = document.cookie.match(/auth_token=([^;]+)/);
+              if (tokenMatch && tokenMatch[1]) {
+                localStorage.setItem('auth_token', tokenMatch[1]);
+                debugLog('Token extracted from cookie and stored in localStorage');
+              } else {
+                debugLog('No token found in response or cookies');
+              }
+            }
+            
+            // Store user info if available
+            if (data.user) {
+              localStorage.setItem('user_email', data.user.email);
+              localStorage.setItem('user_role', data.user.role || 'user');
+              debugLog('User info stored');
+            }
+            
+            // Show success message and redirect
             showMessage('Login successful! Redirecting...', 'success');
             
-            // Check cookies before redirect
+            // Redirect after delay
             setTimeout(() => {
-              checkCookies();
-              
-              // Try to manually set a cookie for testing
-              debugLog('Setting a test cookie to verify cookie functionality');
-              document.cookie = "test_cookie=cookievalue; path=/";
-              
-              // Redirect after delay
-              debugLog('Redirecting to home page');
               window.location.href = '/';
             }, 1000);
           } else {
             // Show error message
-            debugLog('Login failed: ' + (data.error || 'Unknown error'));
-            showMessage(`Login failed: ${data.error || 'Unknown error'}`, 'error');
+            const errorMsg = data.error || 'Invalid credentials';
+            debugLog('Login failed: ' + errorMsg);
+            showMessage(`Login failed: ${errorMsg}`, 'error');
           }
         } catch (error) {
           debugLog('Error during login: ' + error.message);
-          console.error('Error during login:', error);
-          showMessage('An error occurred during login. Please try again.', 'error');
+          showMessage('Connection error. Please try again.', 'error');
         }
       });
       
