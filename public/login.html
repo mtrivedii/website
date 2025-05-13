@@ -44,8 +44,8 @@
         Don't have an account? <a href="/registration.html">Register here</a>
       </p>
 
-      <!-- Debug section - only visible during development -->
-      <div id="debugSection" style="margin-top: 20px; display: none; text-align: left; background: #222; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+      <!-- Debug section - always visible -->
+      <div id="debugSection" style="margin-top: 20px; text-align: left; background: #222; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
         <h3 style="color: #00e6b8; margin-top: 0;">Debug Information</h3>
         <div id="debugOutput"></div>
       </div>
@@ -53,22 +53,18 @@
   </div>
 
   <script>
-    // Debug mode toggle - set to false for production
-    const DEBUG_MODE = window.location.hostname === 'localhost' || localStorage.getItem('debugMode') === 'true';
+    // Always enable debug mode
+    const DEBUG_MODE = true;
     
     function debugLog(message) {
-      if (DEBUG_MODE) {
-        console.log(message);
-        const debugSection = document.getElementById('debugSection');
-        const debugOutput = document.getElementById('debugOutput');
-        
-        if (debugSection && debugOutput) {
-          debugSection.style.display = 'block';
-          const timestamp = new Date().toLocaleTimeString();
-          const entry = document.createElement('div');
-          entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
-          debugOutput.appendChild(entry);
-        }
+      console.log(message);
+      const debugOutput = document.getElementById('debugOutput');
+      
+      if (debugOutput) {
+        const timestamp = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+        debugOutput.appendChild(entry);
       }
     }
     
@@ -116,8 +112,18 @@
           
           debugLog(`Login response status: ${response.status}`);
           
-          const data = await response.json();
-          debugLog('Login response received');
+          const responseText = await response.text();
+          debugLog(`Raw response: ${responseText}`);
+          
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            debugLog(`Parsed response: ${JSON.stringify(data)}`);
+          } catch (e) {
+            debugLog(`Failed to parse response as JSON: ${e.message}`);
+            showMessage('Invalid server response', 'error');
+            return;
+          }
           
           if (response.ok) {
             // Check if 2FA is required
@@ -140,17 +146,36 @@
             
             // Store auth token in localStorage for JWT-based authentication
             if (data.token) {
-              // If server returns token directly (preferred)
+              // FIXING HERE - Save the token to localStorage
+              debugLog(`Token received: ${data.token.substring(0, 20)}...`);
               localStorage.setItem('auth_token', data.token);
-              debugLog('Token stored in localStorage');
+              debugLog('Token stored in localStorage ✅');
+              
+              // Also decode token to check its contents
+              try {
+                const tokenParts = data.token.split('.');
+                if (tokenParts.length === 3) {
+                  const payload = JSON.parse(atob(tokenParts[1]));
+                  debugLog(`Token payload: ${JSON.stringify(payload)}`);
+                  
+                  // Store user info from token
+                  if (payload.email) localStorage.setItem('user_email', payload.email);
+                  if (payload.role) localStorage.setItem('user_role', payload.role);
+                }
+              } catch (e) {
+                debugLog(`Error decoding token: ${e.message}`);
+              }
             } else {
+              debugLog('⚠️ No token in response!');
+              
               // Try to extract from cookie (fallback)
               const tokenMatch = document.cookie.match(/auth_token=([^;]+)/);
               if (tokenMatch && tokenMatch[1]) {
+                debugLog('Found token in cookie');
                 localStorage.setItem('auth_token', tokenMatch[1]);
-                debugLog('Token extracted from cookie and stored in localStorage');
+                debugLog('Token from cookie stored in localStorage');
               } else {
-                debugLog('No token found in response or cookies');
+                debugLog('⚠️ No token found in response or cookies');
               }
             }
             
@@ -158,7 +183,7 @@
             if (data.user) {
               localStorage.setItem('user_email', data.user.email);
               localStorage.setItem('user_role', data.user.role || 'user');
-              debugLog('User info stored');
+              debugLog(`User info stored: ${data.user.email}, role: ${data.user.role || 'user'}`);
             }
             
             // Show success message and redirect
