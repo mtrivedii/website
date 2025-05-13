@@ -164,7 +164,6 @@ router.post('/login', rateLimit, async (req, res) => {
       secure: false,        // SET TO FALSE FOR DEBUGGING
       maxAge: 3600000,      // 1 hour
       sameSite: 'lax',      // Changed from 'strict' to 'lax'
-      domain: 'maanitwebapp.com',  // Set domain for all subdomains
       path: '/'             // Explicitly set the path
     });
 

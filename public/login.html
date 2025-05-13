@@ -55,11 +55,9 @@
   <script>
     // Always enable debug mode
     const DEBUG_MODE = true;
-    
     function debugLog(message) {
       console.log(message);
       const debugOutput = document.getElementById('debugOutput');
-      
       if (debugOutput) {
         const timestamp = new Date().toLocaleTimeString();
         const entry = document.createElement('div');
@@ -67,10 +65,41 @@
         debugOutput.appendChild(entry);
       }
     }
-    
+
+    // --- Admin check snippet integration ---
+    function renderAdminContent() {
+      debugLog('Rendering admin content');
+      const messageDiv = document.getElementById('loginMessage');
+      messageDiv.textContent = "You are an admin! Admin features unlocked.";
+      messageDiv.className = 'message success';
+      messageDiv.style.display = 'block';
+    }
+    function renderUnauthorizedView() {
+      debugLog('Rendering unauthorized view');
+      const messageDiv = document.getElementById('loginMessage');
+      messageDiv.textContent = "You are not an admin.";
+      messageDiv.className = 'message error';
+      messageDiv.style.display = 'block';
+    }
+    // --- End admin check snippet integration ---
+
     document.addEventListener('DOMContentLoaded', function() {
       debugLog('Login page loaded');
-      
+
+      // --- Admin check snippet as requested ---
+      fetch('/api/checkAdmin', {
+        credentials: 'include' // Include cookies
+      })
+      .then(response => {
+        if (response.ok) {
+          renderAdminContent();
+        } else {
+          renderUnauthorizedView();
+        }
+      })
+      .catch(err => renderUnauthorizedView());
+      // --- End admin check snippet ---
+
       const form = document.getElementById('loginForm');
       const messageDiv = document.getElementById('loginMessage');
       
@@ -83,7 +112,6 @@
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
         debugLog('Login form submitted');
-        
         // Collect form data
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
