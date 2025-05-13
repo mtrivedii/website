@@ -10,92 +10,30 @@
   <meta http-equiv="Expires" content="0">
 </head>
 <body>
-  <div id="content-container">
-    <!-- Content will be loaded dynamically -->
-  </div>
-
   <script>
-    // Check authentication and render appropriate content
+    // Simple auth check with redirect
     document.addEventListener('DOMContentLoaded', function() {
+      // Check for token in both localStorage and cookies
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
-      const container = document.getElementById('content-container');
       
-      console.log("Token:", token ? "exists" : "none");
-      console.log("User role:", userRole || "none");
-      
-      // If authenticated as admin, show users page
-      if (token && userRole && userRole.toLowerCase() === 'admin') {
-        container.innerHTML = `
-          <div class="container">
-            <h1>👥 User Directory</h1>
-            
-            <div class="filter-container">
-              <div class="search-filters">
-                <div class="filter-group">
-                  <label for="searchInput">Search:</label>
-                  <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
-                </div>
-                <div class="filter-group">
-                  <label for="roleFilter">Role:</label>
-                  <select id="roleFilter" class="role-select">
-                    <option value="">All Roles</option>
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            <div id="users" class="table-container">
-              <div class="spinner"></div>
-            </div>
-            
-            <div id="pagination" class="pagination hidden">
-              <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
-              <span id="pageInfo" class="page-info">Page 1 of 1</span>
-              <button id="nextPage" class="button pagination-button">Next &raquo;</button>
-            </div>
-            
-            <div class="button-container">
-              <a class="button" href="index.html">← Home</a>
-              <button id="refreshButton" class="button">Refresh Data</button>
-              <button id="logout-button" class="button warning">Logout</button>
-            </div>
-          </div>
-        `;
-        
-        // Add logout functionality
-        document.getElementById('logout-button').addEventListener('click', function() {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user_role');
-          localStorage.removeItem('user_email');
-          document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          window.location.href = '/';
-        });
-        
-        // Initialize users data
-        loadUsers();
-      } 
-      // If not authenticated or not admin, show unauthorized page
-      else {
-        container.innerHTML = `
-          <div class="container">
-            <h1>🔒 Unauthorized Access</h1>
-            
-            <div class="card">
-              <h2>Authentication Required</h2>
-              <p>You must be logged in with appropriate permissions to access this page.</p>
-              <div class="button-container">
-                <a href="/login.html" class="button">Login</a>
-                <a href="/" class="button secondary">Return to Home</a>
-              </div>
-            </div>
-          </div>
-        `;
+      // Also try to extract from cookie as fallback
+      let cookieToken = null;
+      const tokenMatch = document.cookie.match(/auth_token=([^;]+)/);
+      if (tokenMatch && tokenMatch[1]) {
+        cookieToken = tokenMatch[1];
       }
+      
+      // If no valid authentication, redirect to 401 page
+      if ((!token && !cookieToken) || (userRole && userRole.toLowerCase() !== 'admin')) {
+        window.location.href = '/401.html';
+        return;
+      }
+      
+      // Otherwise, continue loading the user directory
+      loadUserDirectory();
     });
-  
+    
     // State management for user data and pagination
     const state = {
       users: [],
@@ -153,6 +91,62 @@
       }
     }
     
+    function loadUserDirectory() {
+      // Create the content container
+      const container = document.createElement('div');
+      container.className = 'container';
+      container.innerHTML = `
+        <h1>👥 User Directory</h1>
+        
+        <div class="filter-container">
+          <div class="search-filters">
+            <div class="filter-group">
+              <label for="searchInput">Search:</label>
+              <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
+            </div>
+            <div class="filter-group">
+              <label for="roleFilter">Role:</label>
+              <select id="roleFilter" class="role-select">
+                <option value="">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div id="users" class="table-container">
+          <div class="spinner"></div>
+        </div>
+        
+        <div id="pagination" class="pagination hidden">
+          <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
+          <span id="pageInfo" class="page-info">Page 1 of 1</span>
+          <button id="nextPage" class="button pagination-button">Next &raquo;</button>
+        </div>
+        
+        <div class="button-container">
+          <a class="button" href="index.html">← Home</a>
+          <button id="refreshButton" class="button">Refresh Data</button>
+          <button id="logout-button" class="button warning">Logout</button>
+        </div>
+      `;
+      
+      document.body.appendChild(container);
+      
+      // Add logout functionality
+      document.getElementById('logout-button').addEventListener('click', function() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_email');
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/';
+      });
+      
+      // Initialize users data
+      loadUsers();
+    }
+      
     // Initialize the data and render the table
     function loadUsers() {
       const target = document.getElementById("users");
@@ -447,6 +441,80 @@
     .button.secondary:hover {
       background-color: #555;
       box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 0.25em 0.6em;
+      font-size: 0.75rem;
+      font-weight: bold;
+      border-radius: 10px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    .badge.success {
+      background-color: rgba(0, 230, 184, 0.2);
+      color: #00e6b8;
+      border: 1px solid #00e6b8;
+    }
+    
+    .badge.warning {
+      background-color: rgba(255, 204, 0, 0.2);
+      color: #ffcc00;
+      border: 1px solid #ffcc00;
+    }
+    
+    .badge.danger {
+      background-color: rgba(255, 51, 102, 0.2);
+      color: #ff3366;
+      border: 1px solid #ff3366;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #00e6b8;
+      width: 30px;
+      height: 30px;
+      margin: 20px auto;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 20px 0;
+      gap: 10px;
+    }
+    
+    .page-info {
+      margin: 0 10px;
+    }
+    
+    .no-results {
+      text-align: center;
+      padding: 20px;
+      color: #888;
+    }
+    
+    .warning {
+      background-color: rgba(255, 204, 0, 0.2);
+      color: #ffcc00;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      text-align: center;
     }
   </style>
 </body>
