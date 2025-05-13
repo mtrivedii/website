@@ -43,18 +43,41 @@
         </div>
         
         <div id="auth-message" class="message" style="display: none;"></div>
+        
+        <!-- Debug section -->
+        <div id="debug-section" style="margin-top: 20px; text-align: left; background: #222; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+          <h3 style="color: #00e6b8; margin-top: 0;">Debug Information</h3>
+          <div id="debug-output"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
+    function debugLog(message) {
+      console.log(message);
+      const debugOutput = document.getElementById('debug-output');
+      
+      if (debugOutput) {
+        const timestamp = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+        debugOutput.appendChild(entry);
+      }
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+      debugLog('2FA verification page loaded');
+      
       // Get user info from URL parameters or local storage
       const urlParams = new URLSearchParams(window.location.search);
       const userId = urlParams.get('userId') || localStorage.getItem('pendingAuthUserId');
       const email = urlParams.get('email') || localStorage.getItem('pendingAuthEmail');
       
+      debugLog(`User info: ID=${userId}, Email=${email}`);
+      
       if (!userId || !email) {
+        debugLog('No user info found, redirecting to login');
         window.location.href = '/login.html';
         return;
       }
@@ -76,6 +99,7 @@
         authMessage.textContent = message;
         authMessage.className = `message ${type}`;
         authMessage.style.display = 'block';
+        debugLog(`Message shown: ${message} (${type})`);
       }
       
       // Hide message
@@ -86,6 +110,7 @@
       // Handle TOTP verification
       async function verifyTOTP() {
         const token = verificationCode.value.trim();
+        debugLog(`Attempting to verify code: ${token}`);
         
         if (!token || token.length !== 6 || !/^\d+$/.test(token)) {
           showMessage('Please enter a valid 6-digit verification code', 'error');
@@ -97,6 +122,7 @@
           verifyButton.disabled = true;
           verifyButton.textContent = 'Verifying...';
           
+          debugLog('Sending verification request to /api/2fa/validate');
           const response = await fetch('/api/2fa/validate', {
             method: 'POST',
             headers: {
@@ -105,12 +131,43 @@
             body: JSON.stringify({ userId, token })
           });
           
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to verify code');
+          debugLog(`Server response status: ${response.status}`);
+          
+          // Parse response as text first to debug the raw response
+          const responseText = await response.text();
+          debugLog(`Raw response: ${responseText}`);
+          
+          // Then parse as JSON if possible
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            debugLog(`Parsed response: ${JSON.stringify(data)}`);
+          } catch (e) {
+            debugLog(`Failed to parse response as JSON: ${e.message}`);
+            throw new Error('Invalid server response format');
           }
           
-          // Clear temporary storage
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to verify code');
+          }
+          
+          // Check for token in response and store it
+          if (data.token) {
+            debugLog(`Token received: ${data.token.substring(0, 20)}...`);
+            localStorage.setItem('auth_token', data.token);
+            debugLog('Token stored in localStorage ✅');
+            
+            // Also store user info
+            localStorage.setItem('user_email', data.email);
+            if (data.role) {
+              localStorage.setItem('user_role', data.role);
+              debugLog(`User role stored: ${data.role}`);
+            }
+          } else {
+            debugLog('⚠️ No token received from server after 2FA verification');
+          }
+          
+          // Clear temporary 2FA auth data
           localStorage.removeItem('pendingAuthUserId');
           localStorage.removeItem('pendingAuthEmail');
           
@@ -120,9 +177,10 @@
           // Redirect after delay
           setTimeout(() => {
             window.location.href = '/';
-          }, 1000);
+          }, 2000);
           
         } catch (error) {
+          debugLog(`Error during verification: ${error.message}`);
           showMessage(error.message || 'Failed to verify the code', 'error');
           verifyButton.disabled = false;
           verifyButton.textContent = 'Verify';
@@ -132,6 +190,7 @@
       // Handle recovery code validation
       async function verifyRecoveryCode() {
         const token = recoveryCode.value.trim();
+        debugLog(`Attempting to verify recovery code: ${token}`);
         
         if (!token || !/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(token)) {
           showMessage('Please enter a valid recovery code (XXXX-XXXX-XXXX)', 'error');
@@ -143,6 +202,7 @@
           recoveryButton.disabled = true;
           recoveryButton.textContent = 'Verifying...';
           
+          debugLog('Sending recovery code to /api/2fa/validate');
           const response = await fetch('/api/2fa/validate', {
             method: 'POST',
             headers: {
@@ -151,12 +211,43 @@
             body: JSON.stringify({ userId, token })
           });
           
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to verify recovery code');
+          debugLog(`Server response status: ${response.status}`);
+          
+          // Parse response as text first to debug the raw response
+          const responseText = await response.text();
+          debugLog(`Raw response: ${responseText}`);
+          
+          // Then parse as JSON if possible
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            debugLog(`Parsed response: ${JSON.stringify(data)}`);
+          } catch (e) {
+            debugLog(`Failed to parse response as JSON: ${e.message}`);
+            throw new Error('Invalid server response format');
           }
           
-          // Clear temporary storage
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to verify recovery code');
+          }
+          
+          // Store token if available
+          if (data.token) {
+            debugLog(`Token received: ${data.token.substring(0, 20)}...`);
+            localStorage.setItem('auth_token', data.token);
+            debugLog('Token stored in localStorage ✅');
+            
+            // Also store user info
+            localStorage.setItem('user_email', data.email);
+            if (data.role) {
+              localStorage.setItem('user_role', data.role);
+              debugLog(`User role stored: ${data.role}`);
+            }
+          } else {
+            debugLog('⚠️ No token received from server after recovery code verification');
+          }
+          
+          // Clear temporary 2FA auth data
           localStorage.removeItem('pendingAuthUserId');
           localStorage.removeItem('pendingAuthEmail');
           
@@ -166,9 +257,10 @@
           // Redirect after delay
           setTimeout(() => {
             window.location.href = '/';
-          }, 1000);
+          }, 2000);
           
         } catch (error) {
+          debugLog(`Error during recovery code verification: ${error.message}`);
           showMessage(error.message || 'Failed to verify the recovery code', 'error');
           recoveryButton.disabled = false;
           recoveryButton.textContent = 'Use Recovery Code';

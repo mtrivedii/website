@@ -5,6 +5,7 @@ const sql = require('mssql');
 const crypto = require('crypto');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
+const jwt = require('jsonwebtoken'); // Add JWT requirement
 
 // Singleton SQL connection pool
 let sqlPool = null;
@@ -173,11 +174,11 @@ router.post('/validate', async (req, res) => {
     // Get database connection
     const pool = await getSqlPool();
     
-    // Get user's 2FA secret
+    // Get user's 2FA secret and role info
     const secretResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query(`
-        SELECT id, email, twoFactorSecret, twoFactorRecoveryCodes
+        SELECT id, email, twoFactorSecret, twoFactorRecoveryCodes, Role
         FROM dbo.users 
         WHERE id = @userId AND twoFactorEnabled = 1
       `);
@@ -239,10 +240,23 @@ router.post('/validate', async (req, res) => {
     // Log successful 2FA validation (for security audit)
     console.log(`2FA validation successful for user: ${user.email} (${userId})`);
     
+    // Generate a JWT token for the user after successful 2FA
+    const authToken = jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        role: user.Role  // Include the user's role
+      },
+      process.env.JWT_SECRET || 'dev-secret-key',
+      { expiresIn: '1h' }
+    );
+    
+    // Return the token along with success info
     return res.status(200).json({
       message: '2FA authentication successful',
       userId: userId,
-      email: user.email
+      email: user.email,
+      token: authToken  // Include the token in the response
     });
     
   } catch (error) {
