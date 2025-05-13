@@ -44,20 +44,30 @@
     <div class="button-container">
       <a class="button" href="index.html">← Home</a>
       <button id="refreshButton" class="button">Refresh Data</button>
+      <button id="logout-button" class="button warning">Logout</button>
     </div>
   </div>
 
   <script>
-    // Check if user is authenticated
+    // Check if user is authenticated and has admin role
     document.addEventListener('DOMContentLoaded', function() {
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
       
       // If no token or not an admin, redirect to login
-      if (!token || (userRole && userRole.toLowerCase() !== 'admin')) {
+      if (!token || !userRole || userRole.toLowerCase() !== 'admin') {
         window.location.href = '/login.html';
         return;
       }
+      
+      // Add logout functionality
+      document.getElementById('logout-button').addEventListener('click', function() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_email');
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/';
+      });
       
       // If authenticated as admin, load users
       loadUsers();
@@ -375,5 +385,17 @@
       renderUsers();
     }
   </script>
+  
+  <style>
+    .button.warning {
+      background-color: #ff3366;
+      color: white;
+    }
+    
+    .button.warning:hover {
+      background-color: #ff4d7d;
+      box-shadow: 0 0 10px rgba(255, 51, 102, 0.7);
+    }
+  </style>
 </body>
 </html>
