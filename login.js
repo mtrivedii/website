@@ -195,6 +195,7 @@ router.post('/login', rateLimit, async (req, res) => {
     // Return success with user information (excluding sensitive data)
     return res.status(200).json({
       message: 'Login successful',
+      token: token,  // Include the token in the response
       user: {
         id: user.id,
         email: user.email,

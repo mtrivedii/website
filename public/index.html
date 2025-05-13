@@ -93,10 +93,10 @@
       }
     }
 
-    // Check authentication status on page load
+    // Check authentication status on page load - SIMPLIFIED
     async function checkAuthStatus() {
       debugLog('Page loaded, checking auth status');
-      // Check for JWT in localStorage
+      // Check for JWT in localStorage only
       const token = localStorage.getItem('auth_token');
       if (token) {
         debugLog('Found JWT in localStorage, using local authentication');
@@ -107,24 +107,8 @@
         return;
       }
 
-      // Optionally, try Azure AD Easy Auth as fallback
-      debugLog('No JWT found, checking Azure AD authentication');
-      try {
-        const resp = await fetch('/.auth/me', { credentials: 'include' });
-        if (resp.status === 200) {
-          debugLog('Azure AD authentication succeeded');
-          document.getElementById('logout-button').style.display = '';
-          document.getElementById('login-link').style.display = 'none';
-          document.getElementById('register-link').style.display = 'none';
-          await checkAdminStatus();
-          return;
-        } else {
-          debugLog('Azure AD authentication failed with status: ' + resp.status);
-        }
-      } catch (err) {
-        debugLog('Azure AD authentication check error: ' + err);
-      }
-      // Not authenticated
+      // Not authenticated - no Azure AD check
+      debugLog('No authentication token found, showing login/register links');
       document.getElementById('logout-button').style.display = 'none';
       document.getElementById('admin-panel-link').style.display = 'none';
       document.getElementById('users-link').style.display = 'none';
@@ -142,8 +126,8 @@
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_email');
-      // Also do regular AAD logout (if used)
-      window.location.href = "/.auth/logout?post_logout_redirect_uri=/";
+      // Redirect to home
+      window.location.href = "/";
     }
 
     // Enable debug logs
