@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Maanit's Web App</title>
-  <link rel="stylesheet" href="style.css?v=1.0.0">
-</head>
+  <link rel="stylesheet" href="style.css?v=1.0.1"> </head>
 <body>
   <div class="container">
     <h1>Welcome to Maanit's Web App</h1>
@@ -23,58 +22,90 @@
   </div>
   
   <script>
-    // Function to log to the page
+    // Function to log ONLY to the browser console
     function debugLog(message) {
-      const logContainer = document.getElementById('debug-log');
-      const timestamp = new Date().toLocaleTimeString();
-      const entry = document.createElement('div');
-      entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
-      logContainer.appendChild(entry);
-      console.log(message);
+      // In production, you might want to conditionally log based on a DEBUG flag,
+      // or reduce the verbosity. For now, this ensures it doesn't break the page.
+      console.log(`[index.html DEBUG] ${message}`);
     }
     
     // Check token and update UI
     function checkToken() {
       const token = localStorage.getItem('auth_token');
       
+      // Get references to DOM elements once
+      const logoutButton = document.getElementById('logout-button');
+      const loginLink = document.getElementById('login-link');
+      const registerLink = document.getElementById('register-link');
+      const adminPanelLink = document.getElementById('admin-panel-link');
+      const usersLink = document.getElementById('users-link');
+
+      // Default to non-authenticated UI state
+      if(logoutButton) logoutButton.style.display = 'none';
+      if(adminPanelLink) adminPanelLink.style.display = 'none';
+      if(usersLink) usersLink.style.display = 'none';
+      if(loginLink) loginLink.style.display = 'inline-block'; // Or your default display
+      if(registerLink) registerLink.style.display = 'inline-block'; // Or your default display
+      
       if (token) {
         debugLog('Found JWT in localStorage');
         
-        // Show authenticated UI
-        document.getElementById('logout-button').style.display = '';
-        document.getElementById('login-link').style.display = 'none';
-        document.getElementById('register-link').style.display = 'none';
+        // Attempt to show authenticated UI elements
+        if(logoutButton) logoutButton.style.display = 'inline-block';
+        if(loginLink) loginLink.style.display = 'none';
+        if(registerLink) registerLink.style.display = 'none';
         
-        // Try to decode the token
         try {
           const parts = token.split('.');
           if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]));
+            const payload = JSON.parse(atob(parts[1])); // Decode the payload
             debugLog(`Token payload: userId=${payload.userId}, email=${payload.email}, role=${payload.role || 'none'}`);
             
-            // Store user info 
-            if (payload.email) localStorage.setItem('user_email', payload.email);
-            if (payload.role) localStorage.setItem('user_role', payload.role);
+            // Store/update user info in localStorage from the token's payload
+            // This ensures consistency if other pages (like login/2fa-verify) didn't set them fully.
+            if (payload.email) {
+              localStorage.setItem('user_email', payload.email);
+            } else {
+              localStorage.removeItem('user_email'); // Clear if not present
+            }
+
+            if (payload.role) {
+              localStorage.setItem('user_role', payload.role); // Set role from JWT
+            } else {
+              localStorage.removeItem('user_role'); // Clear role if not in token
+              debugLog('Role not found in token payload.');
+            }
             
-            // If role is admin, show admin links
+            // Check if the role from the token is admin
             if (payload.role && payload.role.toLowerCase() === 'admin') {
               debugLog('Admin role detected in token, showing admin links');
-              document.getElementById('admin-panel-link').style.display = '';
-              document.getElementById('users-link').style.display = '';
+              if(adminPanelLink) adminPanelLink.style.display = 'inline-block';
+              if(usersLink) usersLink.style.display = 'inline-block';
+            } else {
+              // This else is important to explicitly hide admin links if not admin
+              debugLog('Not an admin role, ensuring admin links are hidden.');
+              if(adminPanelLink) adminPanelLink.style.display = 'none';
+              if(usersLink) usersLink.style.display = 'none';
             }
+          } else {
+            // Invalid token structure
+            debugLog('Invalid JWT structure in localStorage. Clearing token and role.');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_email');
+            // UI will remain in default (non-authenticated) state due to the initial setup
           }
         } catch (e) {
-          debugLog(`Error decoding token: ${e.message}`);
+          // Error decoding token (e.g., malformed token, atob error)
+          debugLog(`Error decoding token: ${e.message}. Clearing token and role.`);
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('user_email');
+          // UI will remain in default (non-authenticated) state
         }
       } else {
-        debugLog('No auth token found in localStorage');
-        
-        // Show non-authenticated UI
-        document.getElementById('logout-button').style.display = 'none';
-        document.getElementById('admin-panel-link').style.display = 'none';
-        document.getElementById('users-link').style.display = 'none';
-        document.getElementById('login-link').style.display = '';
-        document.getElementById('register-link').style.display = '';
+        debugLog('No auth token found in localStorage. Ensuring non-authenticated UI.');
+        // UI is already set to default non-authenticated state from above
       }
     }
     
@@ -83,11 +114,12 @@
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_email');
-      document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      // Also attempt to clear any relevant cookies, though server should ideally invalidate session/token
+      document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax'; 
       
-      debugLog('Logged out - token cleared');
+      debugLog('Logged out - session items cleared from localStorage and attempted cookie clear.');
       
-      // Reload page
+      // Reload page to reflect logged-out state and re-run checkToken
       window.location.reload();
     }
     
@@ -95,52 +127,17 @@
     document.addEventListener('DOMContentLoaded', function() {
       debugLog('Page loaded, checking auth status');
       
-      // Setup event listeners
-      document.getElementById('logout-button').addEventListener('click', logout);
+      const logoutBtnInstance = document.getElementById('logout-button');
+      if (logoutBtnInstance) {
+        logoutBtnInstance.addEventListener('click', logout);
+      } else {
+        debugLog("Logout button not found on this page (this is normal for pages like login.html).");
+      }
       
-      // Check token on page load
+      // Check token on page load to set up initial UI
       checkToken();
     });
   </script>
   
-  <style>
-    .container {
-      max-width: 900px;
-      margin: 50px auto;
-      text-align: center;
-      padding: 20px;
-    }
-    
-    h1 {
-      color: #00e6b8;
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-    }
-    
-    .button-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin: 30px 0;
-    }
-    
-    .button {
-      background-color: #00e6b8;
-      color: black;
-      padding: 10px 20px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: bold;
-      border: none;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .button:hover {
-      background-color: #00ffcc;
-      box-shadow: 0 0 10px #00e6b8;
-    }
-  </style>
-</body>
+  </body>
 </html>
