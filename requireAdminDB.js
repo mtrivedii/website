@@ -31,22 +31,47 @@ async function requireAdminDb(req, res, next) {
       const decodedToken = jwt.verify(authToken, process.env.JWT_SECRET || 'dev-secret-key');
       console.log('JWT token found and verified:', decodedToken);
       
-      // Check if user has admin role
+      // Check if user has admin role in the token
       if (decodedToken.role?.toLowerCase() === 'admin') {
         console.log('Admin access granted via JWT token');
         req.userRole = decodedToken.role;
         return next();
-      } else {
-        console.warn('Forbidden: JWT user is not admin (role:', decodedToken.role, ')');
-        return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
       }
+      
+      // If role in JWT is not admin or is missing, check directly in database
+      try {
+        const pool = await getSqlPool();
+        const request = pool.request();
+        // Check by email since this is available in the JWT token
+        request.input('email', sql.NVarChar, decodedToken.email);
+        
+        // Modified query to check by email for JWT token users
+        const query = 'SELECT Role FROM Users WHERE email = @email';
+        console.log(`Executing query: ${query} with email = ${decodedToken.email}`);
+        
+        const result = await request.query(query);
+        console.log('DB result:', JSON.stringify(result.recordset));
+        
+        const userRole = result.recordset[0]?.Role;
+        if (userRole && userRole.trim().toLowerCase() === 'admin') {
+          console.log(`Admin access granted for JWT user ${decodedToken.email} via DB check`);
+          req.userRole = userRole;
+          return next();
+        }
+      } catch (dbError) {
+        console.error('Database error during JWT user role check:', dbError);
+      }
+      
+      // If we reach here, JWT user is not an admin
+      console.warn('Forbidden: JWT user is not admin (email:', decodedToken.email, ')');
+      return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
     } catch (jwtError) {
       console.error('JWT validation error:', jwtError);
       // Continue to Azure AD check if JWT is invalid
     }
   }
 
-  // Fall back to Azure AD auth if no valid JWT token
+  // Rest of the Azure AD auth code remains unchanged
   const userInfo = extractUserInfo(req);
   console.log('userInfo from Azure AD:', userInfo);
 
