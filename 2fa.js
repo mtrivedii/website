@@ -5,12 +5,19 @@ const sql = require('mssql');
 const crypto = require('crypto');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
-const jwt = require('jsonwebtoken'); // Add JWT requirement
+const jwt = require('jsonwebtoken');
 
 // Singleton SQL connection pool
 let sqlPool = null;
 async function getSqlPool() {
+  // Using the connection string format you had in this file.
+  // Ensure 'SQLAZURECONNSTR_SqlConnectionString' is correctly set in your Azure App Service environment.
   if (!sqlPool) {
+    if (!process.env.SQLAZURECONNSTR_SqlConnectionString) {
+      console.error('FATAL ERROR: SQLAZURECONNSTR_SqlConnectionString is not defined.');
+      // In a real app, you might throw an error or have a fallback,
+      // but for now, it will fail when sql.connect is called.
+    }
     sqlPool = await sql.connect(process.env.SQLAZURECONNSTR_SqlConnectionString);
   }
   return sqlPool;
@@ -25,10 +32,7 @@ router.post('/setup', async (req, res) => {
   }
   
   try {
-    // Get database connection
     const pool = await getSqlPool();
-    
-    // Check if user exists
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query('SELECT id, email, twoFactorEnabled FROM dbo.users WHERE id = @userId');
@@ -39,18 +43,15 @@ router.post('/setup', async (req, res) => {
     
     const user = userResult.recordset[0];
     
-    // Check if 2FA is already enabled
     if (user.twoFactorEnabled) {
       return res.status(400).json({ error: '2FA is already enabled for this user' });
     }
     
-    // Generate a new secret
     const secret = speakeasy.generateSecret({
       length: 20,
-      name: `SecureApp:${email}`
+      name: `SecureApp:${email}` // Consider using a more generic app name if configurable
     });
     
-    // Store the temporary secret in the database
     await pool.request()
       .input('userId', sql.Int, userId)
       .input('secret', sql.NVarChar, secret.base32)
@@ -60,14 +61,11 @@ router.post('/setup', async (req, res) => {
         WHERE id = @userId
       `);
     
-    // Generate QR code
     const otpauth_url = secret.otpauth_url;
     const qrCodeImage = await QRCode.toDataURL(otpauth_url);
     
-    // Log this action (for security audit)
     console.log(`2FA setup initiated for user: ${email} (${userId})`);
     
-    // Return the secret and QR code
     return res.status(200).json({
       secret: secret.base32,
       qrCodeUrl: qrCodeImage,
@@ -75,24 +73,21 @@ router.post('/setup', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('2FA setup error:', error);
+    console.error('2FA setup error:', error.message, error.stack);
     return res.status(500).json({ error: 'Failed to set up 2FA' });
   }
 });
 
 // Setup 2FA - Step 2: Verify and activate
 router.post('/verify', async (req, res) => {
-  const { userId, token } = req.body;
+  const { userId, token: verificationTokenFromUser } = req.body; // Renamed for clarity
   
-  if (!userId || !token) {
-    return res.status(400).json({ error: 'User ID and token are required' });
+  if (!userId || !verificationTokenFromUser) {
+    return res.status(400).json({ error: 'User ID and verification token are required' });
   }
   
   try {
-    // Get database connection
     const pool = await getSqlPool();
-    
-    // Get user's temporary secret
     const secretResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query(`
@@ -102,79 +97,69 @@ router.post('/verify', async (req, res) => {
       `);
     
     if (secretResult.recordset.length === 0 || !secretResult.recordset[0].twoFactorTempSecret) {
-      return res.status(404).json({ error: 'No 2FA setup found for this user' });
+      return res.status(404).json({ error: 'No 2FA setup found for this user or temporary secret missing.' });
     }
     
     const user = secretResult.recordset[0];
     
-    // Verify the token
     const verified = speakeasy.totp.verify({
       secret: user.twoFactorTempSecret,
       encoding: 'base32',
-      token: token,
-      window: 1 // Allow a small time drift
+      token: verificationTokenFromUser,
+      window: 1 
     });
     
     if (!verified) {
       return res.status(401).json({ error: 'Invalid verification code' });
     }
     
-    // Generate recovery codes
     const recoveryCodes = Array(3).fill(0).map(() => {
       const code = crypto.randomBytes(12).toString('hex');
-      // Format as XXXX-XXXX-XXXX
       return `${code.slice(0,4)}-${code.slice(4,8)}-${code.slice(8,12)}`.toUpperCase();
     });
     
-    // Hash the recovery codes
     const hashedCodes = recoveryCodes.map(code => 
       crypto.createHash('sha256').update(code).digest('hex')
     );
     
-    // Update user record to enable 2FA
     await pool.request()
       .input('userId', sql.Int, userId)
-      .input('secret', sql.NVarChar, user.twoFactorTempSecret)
-      .input('recoveryCodes', sql.NVarChar, JSON.stringify(hashedCodes))
+      .input('secretToStore', sql.NVarChar, user.twoFactorTempSecret) // Store the confirmed temp secret as the main secret
+      .input('recoveryCodesJson', sql.NVarChar, JSON.stringify(hashedCodes))
       .query(`
         UPDATE dbo.users
         SET 
           twoFactorEnabled = 1,
-          twoFactorSecret = @secret,
+          twoFactorSecret = @secretToStore,
           twoFactorTempSecret = NULL,
-          twoFactorRecoveryCodes = @recoveryCodes
+          twoFactorRecoveryCodes = @recoveryCodesJson
         WHERE id = @userId
       `);
     
-    // Log successful activation (for security audit)
     console.log(`2FA activated for user: ${user.email} (${userId})`);
     
-    // Return the recovery codes to the user (only time they'll see them unencrypted)
     return res.status(200).json({
       message: '2FA successfully activated',
       twoFactorEnabled: true,
-      recoveryCodes: recoveryCodes
+      recoveryCodes: recoveryCodes // Send plain recovery codes to user once
     });
     
   } catch (error) {
-    console.error('2FA verification error:', error);
-    return res.status(500).json({ error: 'Failed to verify 2FA token' });
+    console.error('2FA verification (activation) error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Failed to verify 2FA token during activation' });
   }
 });
 
-// Login with 2FA
+// Login with 2FA (Validate 2FA code during login attempt)
 router.post('/validate', async (req, res) => {
-  const { userId, token } = req.body;
+  const { userId, token: twoFactorTokenFromUser } = req.body; // Renamed for clarity
   
-  if (!userId || !token) {
-    return res.status(400).json({ error: 'User ID and token are required' });
+  if (!userId || !twoFactorTokenFromUser) {
+    return res.status(400).json({ error: 'User ID and 2FA token are required' });
   }
   
   try {
-    // Get database connection
     const pool = await getSqlPool();
-    
-    // Get user's 2FA secret and role info
     const secretResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query(`
@@ -184,52 +169,43 @@ router.post('/validate', async (req, res) => {
       `);
     
     if (secretResult.recordset.length === 0 || !secretResult.recordset[0].twoFactorSecret) {
-      return res.status(404).json({ error: 'No active 2FA found for this user' });
+      return res.status(404).json({ error: 'No active 2FA found for this user or 2FA not enabled.' });
     }
     
     const user = secretResult.recordset[0];
-    
-    // First check if the token is a recovery code
-    let isRecoveryCode = false;
-    let recoveryCodeIndex = -1;
-    
-    try {
-      const recoveryCodes = JSON.parse(user.twoFactorRecoveryCodes || '[]');
-      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-      
-      recoveryCodeIndex = recoveryCodes.indexOf(hashedToken);
-      if (recoveryCodeIndex !== -1) {
-        isRecoveryCode = true;
-      }
-    } catch (e) {
-      console.error('Error parsing recovery codes:', e);
+    let validated = false;
+
+    // Check if the token is a recovery code
+    if (user.twoFactorRecoveryCodes) {
+        try {
+            const recoveryCodesList = JSON.parse(user.twoFactorRecoveryCodes); // Ensure this is an array
+            const hashedTokenFromUser = crypto.createHash('sha256').update(twoFactorTokenFromUser).digest('hex');
+            const recoveryCodeIndex = recoveryCodesList.indexOf(hashedTokenFromUser);
+
+            if (recoveryCodeIndex !== -1) {
+                recoveryCodesList.splice(recoveryCodeIndex, 1); // Use and invalidate
+                await pool.request()
+                .input('userId', sql.Int, userId)
+                .input('updatedRecoveryCodes', sql.NVarChar, JSON.stringify(recoveryCodesList))
+                .query(`
+                    UPDATE dbo.users
+                    SET twoFactorRecoveryCodes = @updatedRecoveryCodes
+                    WHERE id = @userId
+                `);
+                validated = true;
+                console.log(`2FA recovery code used for user: ${user.email} (${userId})`);
+            }
+        } catch (e) {
+            console.error('Error parsing or using recovery codes during validation:', e.message, e.stack);
+        }
     }
     
-    let validated = false;
-    
-    if (isRecoveryCode) {
-      // Use and invalidate recovery code
-      const recoveryCodes = JSON.parse(user.twoFactorRecoveryCodes);
-      recoveryCodes.splice(recoveryCodeIndex, 1);
-      
-      await pool.request()
-        .input('userId', sql.Int, userId)
-        .input('recoveryCodes', sql.NVarChar, JSON.stringify(recoveryCodes))
-        .query(`
-          UPDATE dbo.users
-          SET twoFactorRecoveryCodes = @recoveryCodes
-          WHERE id = @userId
-        `);
-      
-      validated = true;
-      console.log(`2FA recovery code used for user: ${user.email} (${userId})`);
-    } else {
-      // Verify the TOTP token
+    if (!validated) { // If not validated by recovery code, try TOTP
       validated = speakeasy.totp.verify({
         secret: user.twoFactorSecret,
         encoding: 'base32',
-        token: token,
-        window: 1 // Allow a small time drift
+        token: twoFactorTokenFromUser,
+        window: 1
       });
     }
     
@@ -237,47 +213,50 @@ router.post('/validate', async (req, res) => {
       return res.status(401).json({ error: 'Invalid verification code' });
     }
     
-    // Log successful 2FA validation (for security audit)
     console.log(`2FA validation successful for user: ${user.email} (${userId})`);
     
-    // Generate a JWT token for the user after successful 2FA
-    const authToken = jwt.sign(
+    const finalAuthToken = jwt.sign(
       { 
         userId: user.id,
         email: user.email,
-        role: user.Role  // Include the user's role
+        role: user.Role 
       },
       process.env.JWT_SECRET || 'dev-secret-key',
       { expiresIn: '1h' }
     );
     
-    // Return the token along with success info
+    // <<< SET THE AUTH_TOKEN COOKIE (PRODUCTION-READY) >>>
+    res.cookie('auth_token', finalAuthToken, {
+      httpOnly: true,
+      secure: true, // Assuming your site is HTTPS, which it is
+      maxAge: 3600000, // 1 hour
+      sameSite: 'lax',
+      path: '/'
+    });
+    
     return res.status(200).json({
       message: '2FA authentication successful',
-      userId: userId,
+      userId: user.id, // Or convert to string if client expects string userId
       email: user.email,
-      token: authToken  // Include the token in the response
+      token: finalAuthToken // Send in body for localStorage on client
     });
     
   } catch (error) {
-    console.error('2FA validation error:', error);
-    return res.status(500).json({ error: 'Failed to validate 2FA token' });
+    console.error('2FA validation (login) error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Failed to validate 2FA token during login' });
   }
 });
 
 // Disable 2FA
 router.post('/disable', async (req, res) => {
-  const { userId, token } = req.body;
+  const { userId, token: verificationTokenFromUser } = req.body; // Renamed for clarity
   
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required' });
   }
   
   try {
-    // Get database connection
     const pool = await getSqlPool();
-    
-    // Get user's 2FA secret
     const secretResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query(`
@@ -287,26 +266,27 @@ router.post('/disable', async (req, res) => {
       `);
     
     if (secretResult.recordset.length === 0) {
-      return res.status(404).json({ error: 'No active 2FA found for this user' });
+      return res.status(404).json({ error: 'No active 2FA found for this user.' });
     }
     
     const user = secretResult.recordset[0];
     
-    // If token is provided, verify it
-    if (token) {
+    // If token is provided for verification before disabling, verify it
+    if (verificationTokenFromUser) {
       const verified = speakeasy.totp.verify({
         secret: user.twoFactorSecret,
         encoding: 'base32',
-        token: token,
+        token: verificationTokenFromUser,
         window: 1
       });
       
       if (!verified) {
-        return res.status(401).json({ error: 'Invalid verification code' });
+        return res.status(401).json({ error: 'Invalid verification code for disabling 2FA' });
       }
     }
+    // If no token is provided, it implies disabling without current code (e.g., admin action or after recovery)
+    // Add appropriate authorization checks here if this path needs to be more secure.
     
-    // Disable 2FA
     await pool.request()
       .input('userId', sql.Int, userId)
       .query(`
@@ -319,39 +299,40 @@ router.post('/disable', async (req, res) => {
         WHERE id = @userId
       `);
     
-    // Log this action (for security audit)
     console.log(`2FA disabled for user: ${user.email} (${userId})`);
     
+    // Clear the auth_token cookie if the user is disabling their own 2FA and should be logged out
+    // or forced to re-authenticate under new (non-2FA) terms.
+    // This depends on your desired UX. For now, just confirming disable.
+    // res.clearCookie('auth_token', { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
+
     return res.status(200).json({
       message: '2FA successfully disabled',
       twoFactorEnabled: false
     });
     
   } catch (error) {
-    console.error('2FA disable error:', error);
+    console.error('2FA disable error:', error.message, error.stack);
     return res.status(500).json({ error: 'Failed to disable 2FA' });
   }
 });
 
 // Check 2FA status
 router.get('/status/:userId', async (req, res) => {
-  const userId = req.params.userId;
+  const userIdParam = req.params.userId; // Renamed to avoid conflict
   
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID is required' });
+  if (!userIdParam) {
+    return res.status(400).json({ error: 'User ID parameter is required' });
   }
   
   try {
-    // Get database connection
     const pool = await getSqlPool();
-    
-    // Check if 2FA is enabled
     const result = await pool.request()
-      .input('userId', sql.Int, userId)
+      .input('userIdInput', sql.Int, userIdParam) // Use a different name for input param
       .query(`
         SELECT twoFactorEnabled
         FROM dbo.users 
-        WHERE id = @userId
+        WHERE id = @userIdInput
       `);
     
     if (result.recordset.length === 0) {
@@ -363,7 +344,7 @@ router.get('/status/:userId', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('2FA status check error:', error);
+    console.error('2FA status check error:', error.message, error.stack);
     return res.status(500).json({ error: 'Failed to check 2FA status' });
   }
 });
