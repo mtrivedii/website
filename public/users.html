@@ -10,30 +10,100 @@
   <meta http-equiv="Expires" content="0">
 </head>
 <body>
+  <div id="content-container">
+    <!-- Content will be loaded dynamically -->
+  </div>
+
   <script>
-    // Simple auth check with redirect
+    // Check authentication and render appropriate content
     document.addEventListener('DOMContentLoaded', function() {
-      // Check for token in both localStorage and cookies
       const token = localStorage.getItem('auth_token');
       const userRole = localStorage.getItem('user_role');
+      const container = document.getElementById('content-container');
       
-      // Also try to extract from cookie as fallback
+      console.log("Token:", token ? "exists" : "none");
+      console.log("User role:", userRole || "none");
+      
+      // Also check cookies for token as fallback
       let cookieToken = null;
       const tokenMatch = document.cookie.match(/auth_token=([^;]+)/);
       if (tokenMatch && tokenMatch[1]) {
         cookieToken = tokenMatch[1];
+        console.log("Found token in cookie");
       }
       
-      // If no valid authentication, redirect to 401 page
-      if ((!token && !cookieToken) || (userRole && userRole.toLowerCase() !== 'admin')) {
-        window.location.href = '/401.html';
-        return;
+      // If authenticated as admin, show users page
+      if ((token || cookieToken) && userRole && userRole.toLowerCase() === 'admin') {
+        container.innerHTML = `
+          <div class="container">
+            <h1>👥 User Directory</h1>
+            
+            <div class="filter-container">
+              <div class="search-filters">
+                <div class="filter-group">
+                  <label for="searchInput">Search:</label>
+                  <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
+                </div>
+                <div class="filter-group">
+                  <label for="roleFilter">Role:</label>
+                  <select id="roleFilter" class="role-select">
+                    <option value="">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div id="users" class="table-container">
+              <div class="spinner"></div>
+            </div>
+            
+            <div id="pagination" class="pagination hidden">
+              <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
+              <span id="pageInfo" class="page-info">Page 1 of 1</span>
+              <button id="nextPage" class="button pagination-button">Next &raquo;</button>
+            </div>
+            
+            <div class="button-container">
+              <a class="button" href="index.html">← Home</a>
+              <button id="refreshButton" class="button">Refresh Data</button>
+              <button id="logout-button" class="button warning">Logout</button>
+            </div>
+          </div>
+        `;
+        
+        // Add logout functionality
+        document.getElementById('logout-button').addEventListener('click', function() {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('user_email');
+          document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          window.location.href = '/';
+        });
+        
+        // Initialize users data
+        loadUsers();
+      } 
+      // If not authenticated or not admin, show unauthorized page
+      else {
+        container.innerHTML = `
+          <div class="container">
+            <h1>🔒 Unauthorized Access</h1>
+            
+            <div class="card">
+              <h2>Authentication Required</h2>
+              <p>You must be logged in with appropriate permissions to access this page.</p>
+              <div class="button-container">
+                <a href="/login.html" class="button">Login</a>
+                <a href="/" class="button secondary">Return to Home</a>
+              </div>
+            </div>
+          </div>
+        `;
       }
-      
-      // Otherwise, continue loading the user directory
-      loadUserDirectory();
     });
-    
+  
     // State management for user data and pagination
     const state = {
       users: [],
@@ -91,62 +161,6 @@
       }
     }
     
-    function loadUserDirectory() {
-      // Create the content container
-      const container = document.createElement('div');
-      container.className = 'container';
-      container.innerHTML = `
-        <h1>👥 User Directory</h1>
-        
-        <div class="filter-container">
-          <div class="search-filters">
-            <div class="filter-group">
-              <label for="searchInput">Search:</label>
-              <input type="text" id="searchInput" placeholder="Filter by email..." class="search-input">
-            </div>
-            <div class="filter-group">
-              <label for="roleFilter">Role:</label>
-              <select id="roleFilter" class="role-select">
-                <option value="">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        
-        <div id="users" class="table-container">
-          <div class="spinner"></div>
-        </div>
-        
-        <div id="pagination" class="pagination hidden">
-          <button id="prevPage" class="button pagination-button">&laquo; Previous</button>
-          <span id="pageInfo" class="page-info">Page 1 of 1</span>
-          <button id="nextPage" class="button pagination-button">Next &raquo;</button>
-        </div>
-        
-        <div class="button-container">
-          <a class="button" href="index.html">← Home</a>
-          <button id="refreshButton" class="button">Refresh Data</button>
-          <button id="logout-button" class="button warning">Logout</button>
-        </div>
-      `;
-      
-      document.body.appendChild(container);
-      
-      // Add logout functionality
-      document.getElementById('logout-button').addEventListener('click', function() {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_email');
-        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        window.location.href = '/';
-      });
-      
-      // Initialize users data
-      loadUsers();
-    }
-      
     // Initialize the data and render the table
     function loadUsers() {
       const target = document.getElementById("users");
