@@ -148,25 +148,49 @@ router.post('/login', rateLimit, async (req, res) => {
       { expiresIn: '1h' }
     );
     
-    // Update last login timestamp in database - Fixed column name
-    await pool.request()
-      .input('userId', sql.NVarChar, user.id)
-      .query(`
-        UPDATE dbo.users 
-        SET last_login = GETDATE() 
-        WHERE id = @userId
-      `);
-    
     // Log successful login (for security audit)
     console.log(`[LOGIN] User successfully logged in: ${email} (${user.id})`);
-    
-    // Set secure HTTP-only cookie with the token - modified for better compatibility
+    console.log(`[LOGIN] Setting auth cookie with role: ${user.Role}`);
+
+    // Debug cookie headers before setting
+    console.log(`[COOKIE DEBUG] Request protocol: ${req.protocol}`);
+    console.log(`[COOKIE DEBUG] X-Forwarded-Proto: ${req.headers['x-forwarded-proto']}`);
+    console.log(`[COOKIE DEBUG] Request secure: ${req.secure}`);
+    console.log(`[COOKIE DEBUG] Host: ${req.headers.host}`);
+
+    // Set secure HTTP-only cookie with the token - modified for debugging
     res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: req.secure || req.headers['x-forwarded-proto'] === 'https', // More flexible security check
-      maxAge: 3600000, // 1 hour
-      sameSite: 'lax' // Changed from 'strict' to 'lax' for better compatibility
+      httpOnly: false,      // SET TO FALSE FOR DEBUGGING
+      secure: false,        // SET TO FALSE FOR DEBUGGING
+      maxAge: 3600000,      // 1 hour
+      sameSite: 'lax',      // Changed from 'strict' to 'lax'
+      path: '/'             // Explicitly set the path
     });
+
+    // Add a debugging cookie that will be visible in JavaScript
+    res.cookie('auth_debug', Date.now(), {
+      httpOnly: false,
+      secure: false,
+      maxAge: 3600000,
+      path: '/'
+    });
+
+    console.log(`[COOKIE DEBUG] Cookies set`);
+    
+    // Update last login timestamp in database - Fixed column name
+    try {
+      await pool.request()
+        .input('userId', sql.Int, user.id)  // Make sure this matches the expected type
+        .query(`
+          UPDATE dbo.users 
+          SET last_login = GETDATE() 
+          WHERE id = @userId
+        `);
+      console.log(`[LOGIN] Last login timestamp updated for user ${user.id}`);
+    } catch (updateError) {
+      console.error(`[LOGIN] Error updating last login timestamp: ${updateError.message}`);
+      // Continue anyway, this is not critical
+    }
     
     // Return success with user information (excluding sensitive data)
     return res.status(200).json({
