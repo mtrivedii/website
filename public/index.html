@@ -71,21 +71,47 @@
       return false;
     }
 
-    debugLog('Using JWT token for admin check');
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
+    debugLog('JWT token: ' + token.substring(0, 20) + '...');
+    
+    // Decode token locally to check role first
+    // This is just for debugging, actual verification happens server-side
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        debugLog('Token payload: ' + JSON.stringify(payload));
+        if (payload.role && payload.role.toLowerCase() === 'admin') {
+          debugLog('Token contains admin role');
+        }
+      }
+    } catch (e) {
+      debugLog('Error decoding token: ' + e.message);
+    }
 
+    debugLog('Sending request to /api/checkAdmin with Authorization header');
     const response = await fetch('/api/checkAdmin', {
       method: 'GET',
-      headers: headers,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
       credentials: 'include'
     });
 
+    const responseText = await response.text();
+    debugLog(`Admin check response: Status ${response.status}, Body: ${responseText}`);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+      debugLog('Parsed response: ' + JSON.stringify(responseData));
+    } catch (e) {
+      debugLog('Not JSON response');
+    }
+
     if (response.ok) {
-      const data = await response.json();
-      debugLog(`Admin status confirmed: ${JSON.stringify(data)}`);
+      debugLog('Admin access confirmed');
       return true;
     } else {
       debugLog(`Not admin: ${response.status}`);
@@ -175,10 +201,8 @@
       window.location.href = "/";
     }
     
-    // Enable debug mode for testing
-    if (window.location.hostname === 'localhost') {
-      localStorage.setItem('debug_mode', 'true');
-    }
+    // Enable debug mode for development
+    localStorage.setItem('debug_mode', 'true');
     
     // Attach logout handler and run auth check on page load
     document.addEventListener('DOMContentLoaded', function() {
