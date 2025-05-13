@@ -35,11 +35,13 @@ async function getSqlPool() {
   return sqlPool;
 }
 
-// Rate limiting middleware (simple implementation)
+// Modified rate limiting middleware with better logging
 const loginAttempts = new Map();
 function rateLimit(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
+  
+  console.log(`[RATE LIMIT] Checking IP: ${ip}`);
   
   // Get existing attempts for this IP
   const attempts = loginAttempts.get(ip) || [];
@@ -47,8 +49,11 @@ function rateLimit(req, res, next) {
   // Filter out attempts older than 15 minutes
   const recentAttempts = attempts.filter(time => now - time < 900000);
   
-  // Check if too many attempts
-  if (recentAttempts.length >= 5) {
+  console.log(`[RATE LIMIT] Recent attempts: ${recentAttempts.length}`);
+  
+  // Check if too many attempts - temporarily increase limit for testing
+  if (recentAttempts.length >= 10) { // Increased from 5 to 10 for testing
+    console.log(`[RATE LIMIT] Limit exceeded for IP: ${ip}`);
     return res.status(429).json({ 
       error: 'Too many login attempts. Please try again later.' 
     });
@@ -61,12 +66,15 @@ function rateLimit(req, res, next) {
   next();
 }
 
-// Login endpoint - Matches pattern in register.js with '/' route
+// Login endpoint - improved logging
 router.post('/login', rateLimit, async (req, res) => {
+  console.log('[LOGIN] Received login attempt for:', req.body.email);
+  
   const { email, password } = req.body;
   
   // Basic validation
   if (!email || !password) {
+    console.log('[LOGIN] Missing email or password');
     return res.status(400).json({ error: 'Email and password are required' });
   }
   
@@ -88,7 +96,7 @@ router.post('/login', rateLimit, async (req, res) => {
     // User not found
     if (result.recordset.length === 0) {
       // Log failed login attempt (for security audit)
-      console.log(`Login failed: User not found - ${email}`);
+      console.log(`[LOGIN] Failed: User not found - ${email}`);
       
       // Use a consistent response time to prevent timing attacks
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -97,10 +105,11 @@ router.post('/login', rateLimit, async (req, res) => {
     }
     
     const user = result.recordset[0];
+    console.log(`[LOGIN] User found: ${user.email}, role: ${user.Role}, status: ${user.status}`);
     
     // Check if account is active
     if (user.status !== 'Active') {
-      console.log(`Login attempt for inactive account: ${email}`);
+      console.log(`[LOGIN] Login attempt for inactive account: ${email}`);
       return res.status(401).json({ error: 'Account is inactive' });
     }
     
@@ -109,7 +118,7 @@ router.post('/login', rateLimit, async (req, res) => {
     
     if (!passwordMatch) {
       // Log failed login attempt (for security audit)
-      console.log(`Login failed: Invalid password - ${email}`);
+      console.log(`[LOGIN] Failed: Invalid password - ${email}`);
       
       // Update login attempts tracking
       const userAttempts = trackUserLoginAttempts(email);
@@ -119,6 +128,7 @@ router.post('/login', rateLimit, async (req, res) => {
     
     // Check if 2FA is required
     if (user.twoFactorEnabled) {
+      console.log(`[LOGIN] 2FA required for user: ${email}`);
       return res.status(200).json({
         requireTwoFactor: true,
         userId: user.id,
@@ -148,14 +158,14 @@ router.post('/login', rateLimit, async (req, res) => {
       `);
     
     // Log successful login (for security audit)
-    console.log(`User logged in: ${email} (${user.id})`);
+    console.log(`[LOGIN] User successfully logged in: ${email} (${user.id})`);
     
-    // Set secure HTTP-only cookie with the token
+    // Set secure HTTP-only cookie with the token - modified for better compatibility
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Only HTTPS in production
+      secure: req.secure || req.headers['x-forwarded-proto'] === 'https', // More flexible security check
       maxAge: 3600000, // 1 hour
-      sameSite: 'strict'
+      sameSite: 'lax' // Changed from 'strict' to 'lax' for better compatibility
     });
     
     // Return success with user information (excluding sensitive data)
@@ -169,7 +179,7 @@ router.post('/login', rateLimit, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[LOGIN] Error:', error);
     return res.status(500).json({ error: 'An error occurred during login' });
   }
 });
@@ -188,7 +198,7 @@ function trackUserLoginAttempts(email) {
   
   // If too many failed attempts, could implement account locking here
   if (recentAttempts.length >= 10) {
-    console.log(`SECURITY ALERT: Account ${email} has had 10+ failed login attempts in 24 hours`);
+    console.log(`[SECURITY ALERT] Account ${email} has had 10+ failed login attempts in 24 hours`);
     // In a real implementation, you might set account status to 'Locked'
   }
   

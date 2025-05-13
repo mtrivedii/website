@@ -2,7 +2,7 @@
 
 const express = require('express');
 const path = require('path');
-const cookieParser = require('cookie-parser'); // Add this line
+const cookieParser = require('cookie-parser');
 
 // Import handlers & routers
 const checkAdminHandler = require('./checkAdmin');
@@ -20,19 +20,24 @@ app.disable('x-powered-by');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Add this line to enable cookie parsing
+app.use(cookieParser()); // Enable cookie parsing
 
+// Updated CORS configuration for credentials
 app.use((req, res, next) => {
- res.setHeader('Access-Control-Allow-Origin', '*');
- res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
- res.setHeader(
-   'Access-Control-Allow-Headers',
-   'Content-Type, Authorization, X-CSRF-Token'
- );
- if (req.method === 'OPTIONS') {
-   return res.status(200).end();
- }
- next();
+  // For security with cookies, you can't use '*' with credentials
+  const allowedOrigins = ['https://maanitwebapp.com', 'http://localhost:3000'];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+  res.setHeader('Access-Control-Allow-Credentials', 'true'); // Enable credentials for CORS
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
 });
 
 // Security headers
@@ -80,16 +85,23 @@ app.post('/api/checkAdmin', requireAuth, checkAdminHandler.handler);
 
 app.get('/api/getSasToken', getSasTokenHandler.handler);
 app.options('/api/getSasToken', (req, res) => {
- res.setHeader('Access-Control-Allow-Origin', '*');
- res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
- res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
- res.setHeader('Access-Control-Max-Age', '86400');
- res.status(200).end();
+  // Updated CORS for specific routes too
+  const allowedOrigins = ['https://maanitwebapp.com', 'http://localhost:3000'];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.status(200).end();
 });
 
+// Mount routes - login route is NOT behind requireAuth
 app.use('/api/register', registerRouter);
 app.use('/api/2fa', twoFARouter);
-app.use('/api', loginRouter); // Add this line to mount the login router
+app.use('/api', loginRouter);
 app.use('/api', usersRouter);
 
 // === Protected Admin Pages ===
