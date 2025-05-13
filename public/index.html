@@ -25,113 +25,160 @@
       <a href="/admin.html" class="button" id="admin-panel-link" style="display:none;">Admin Panel</a>
       <a href="#" class="button" id="logout-button" style="display:none;">Logout</a>
     </div>
-    <!-- Debug panel removed -->
+    
+    <div id="auth-info" style="margin-top: 20px; padding: 10px; background-color: #1a1a1a; border-radius: 5px; display: none;">
+      <h3 style="color: #00e6b8; margin-top: 0;">Authentication Status</h3>
+      <div id="auth-status"></div>
+    </div>
   </div>
 
   <script>
+    // Debug mode - will show extra information on the page
+    const DEBUG_MODE = window.location.hostname === 'localhost' || localStorage.getItem('debug_mode') === 'true';
     const loadingEl = document.getElementById('loading');
+    const authInfoEl = document.getElementById('auth-info');
+    const authStatusEl = document.getElementById('auth-status');
+    
+    // Show the auth info panel if in debug mode
+    if (DEBUG_MODE) {
+      authInfoEl.style.display = 'block';
+    }
     
     function hideLoader() {
       if (loadingEl) loadingEl.style.display = 'none';
     }
     
+    function showLoader() {
+      if (loadingEl) loadingEl.style.display = 'flex';
+    }
+    
     function debugLog(msg) {
-      if (window.location.hostname === "localhost" || localStorage.getItem('enableDebugLogs') === 'true') {
-        console.log(msg);
+      console.log(`[DEBUG] ${msg}`);
+      if (DEBUG_MODE && authStatusEl) {
+        const logEntry = document.createElement('div');
+        logEntry.style.borderBottom = '1px solid #333';
+        logEntry.style.padding = '5px 0';
+        logEntry.innerHTML = `<span style="color: #888;">${new Date().toLocaleTimeString()}</span> ${msg}`;
+        authStatusEl.appendChild(logEntry);
       }
     }
 
-    // Show/hide admin links based on admin status
-    async function checkAdminStatus() {
+    async function fetchAdminStatus() {
+  try {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      debugLog('No JWT token found in localStorage');
+      return false;
+    }
+
+    debugLog('Using JWT token for admin check');
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    const response = await fetch('/api/checkAdmin', {
+      method: 'GET',
+      headers: headers,
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      debugLog(`Admin status confirmed: ${JSON.stringify(data)}`);
+      return true;
+    } else {
+      debugLog(`Not admin: ${response.status}`);
+      return false;
+    }
+  } catch (error) {
+    debugLog(`Admin check error: ${error.message}`);
+    return false;
+  }
+}
+
+    // Improved auth status check
+    async function checkAuthStatus() {
+      debugLog('Page loaded, checking auth status');
+      
       try {
-        debugLog('Checking admin status...');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-          debugLog('Admin check timed out');
-          hideLoader();
-        }, 10000);
-
-        // Prepare headers: send JWT from localStorage if present
+        showLoader();
+        
+        // Check for JWT in localStorage
         const token = localStorage.getItem('auth_token');
-        const headers = {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        };
+        const userEmail = localStorage.getItem('user_email');
+        const userRole = localStorage.getItem('user_role');
+        
         if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+          debugLog(`Found JWT in localStorage for user: ${userEmail || 'unknown'}, role: ${userRole || 'unknown'}`);
+          
+          // Show logout button and hide login/register
+          document.getElementById('logout-button').style.display = '';
+          document.getElementById('login-link').style.display = 'none';
+          document.getElementById('register-link').style.display = 'none';
+          
+          // If we stored that the user is an admin, show admin links immediately
+          if (userRole && userRole.toLowerCase() === 'admin') {
+            debugLog('User role is admin in localStorage, showing admin links');
+            document.getElementById('admin-panel-link').style.display = '';
+            document.getElementById('users-link').style.display = '';
+          }
+          
+          // Always verify admin status on the server to be sure
+          const isAdmin = await checkAdminStatus();
+          
+          if (isAdmin) {
+            // Update localStorage if we confirmed user is admin but didn't have it stored
+            if (!userRole || userRole.toLowerCase() !== 'admin') {
+              localStorage.setItem('user_role', 'admin');
+              debugLog('Updated user role to admin in localStorage');
+            }
+          }
+          
+          hideLoader();
+          return;
         }
-
-        const adminResponse = await fetch('/api/checkAdmin', {
-          signal: controller.signal,
-          headers,
-          credentials: 'include'
-        });
-
-        clearTimeout(timeoutId);
-
-        debugLog('Admin check response status: ' + adminResponse.status);
-
-        if (adminResponse.status === 200) {
-          debugLog('Admin access granted, showing admin links');
-          document.getElementById('admin-panel-link').style.display = '';
-          document.getElementById('users-link').style.display = '';
-        } else if (adminResponse.status === 401) {
-          debugLog('Not authenticated, redirecting to login');
-          window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
-        } else {
-          debugLog('Not an admin or other error: ' + adminResponse.status);
-          document.getElementById('admin-panel-link').style.display = 'none';
-          document.getElementById('users-link').style.display = 'none';
-        }
-      } catch (error) {
-        debugLog('Error checking admin status: ' + error);
+        
+        // No Azure AD authentication - we're only using JWT
+        
+        // Not authenticated
+        debugLog('No authentication found, showing login/register links');
+        document.getElementById('logout-button').style.display = 'none';
         document.getElementById('admin-panel-link').style.display = 'none';
         document.getElementById('users-link').style.display = 'none';
+        document.getElementById('login-link').style.display = '';
+        document.getElementById('register-link').style.display = '';
+        
+      } catch (error) {
+        debugLog('Error in auth check: ' + error);
       } finally {
         hideLoader();
       }
     }
 
-    // Check authentication status on page load - SIMPLIFIED
-    async function checkAuthStatus() {
-      debugLog('Page loaded, checking auth status');
-      // Check for JWT in localStorage only
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        debugLog('Found JWT in localStorage, using local authentication');
-        document.getElementById('logout-button').style.display = '';
-        document.getElementById('login-link').style.display = 'none';
-        document.getElementById('register-link').style.display = 'none';
-        await checkAdminStatus();
-        return;
-      }
-
-      // Not authenticated - no Azure AD check
-      debugLog('No authentication token found, showing login/register links');
-      document.getElementById('logout-button').style.display = 'none';
-      document.getElementById('admin-panel-link').style.display = 'none';
-      document.getElementById('users-link').style.display = 'none';
-      document.getElementById('login-link').style.display = '';
-      document.getElementById('register-link').style.display = '';
-      hideLoader();
-    }
-
-    // Logout function
+    // Enhanced logout function
     function logout() {
       debugLog('Logging out...');
+      
       // Clear JWT cookie if present
       document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      
+      // Clear Azure AD cookie if present
+      document.cookie = "AppServiceAuthSession=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      
       // Clear localStorage token and user info
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_email');
-      // Redirect to home
+      
+      // Just redirect to home page
       window.location.href = "/";
     }
-
-    // Enable debug logs
-    localStorage.setItem('enableDebugLogs', 'true');
+    
+    // Enable debug mode for testing
+    if (window.location.hostname === 'localhost') {
+      localStorage.setItem('debug_mode', 'true');
+    }
     
     // Attach logout handler and run auth check on page load
     document.addEventListener('DOMContentLoaded', function() {
@@ -139,8 +186,12 @@
       if (logoutBtn) {
         logoutBtn.addEventListener('click', logout);
       }
-      checkAuthStatus();
+      
+      // Set a timeout to hide the loader in case of issues
       setTimeout(hideLoader, 15000);
+      
+      // Run the auth check
+      checkAuthStatus();
     });
   </script>
 
