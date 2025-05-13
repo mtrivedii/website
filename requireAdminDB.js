@@ -1,7 +1,7 @@
 // requireAdminDb.js
-
 const sql = require('mssql');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const { extractUserInfo } = require('./auth-utilities');
 
 const sqlConfig = {
@@ -21,10 +21,34 @@ function getSqlPool() {
 }
 
 async function requireAdminDb(req, res, next) {
-  const userInfo = extractUserInfo(req);
-
   console.log('--- ADMIN DB MIDDLEWARE DEBUG ---');
-  console.log('userInfo:', userInfo);
+  
+  // Check for JWT token first
+  const authToken = req.cookies?.auth_token;
+  if (authToken) {
+    try {
+      // Verify the JWT token
+      const decodedToken = jwt.verify(authToken, process.env.JWT_SECRET || 'dev-secret-key');
+      console.log('JWT token found and verified:', decodedToken);
+      
+      // Check if user has admin role
+      if (decodedToken.role?.toLowerCase() === 'admin') {
+        console.log('Admin access granted via JWT token');
+        req.userRole = decodedToken.role;
+        return next();
+      } else {
+        console.warn('Forbidden: JWT user is not admin (role:', decodedToken.role, ')');
+        return res.status(401).sendFile(path.join(__dirname, 'public', '401.html'));
+      }
+    } catch (jwtError) {
+      console.error('JWT validation error:', jwtError);
+      // Continue to Azure AD check if JWT is invalid
+    }
+  }
+
+  // Fall back to Azure AD auth if no valid JWT token
+  const userInfo = extractUserInfo(req);
+  console.log('userInfo from Azure AD:', userInfo);
 
   if (
     !userInfo.isAuthenticated ||

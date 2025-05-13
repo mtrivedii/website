@@ -1,5 +1,6 @@
 // checkAdmin.js
 const sql = require('mssql');
+const jwt = require('jsonwebtoken');
 const { extractUserInfo } = require('./auth-utilities');
 
 const sqlConfig = {
@@ -20,6 +21,38 @@ function getSqlPool() {
 
 async function handler(req, res) {
   console.log('Request headers:', JSON.stringify(req.headers));
+  console.log('Request cookies:', JSON.stringify(req.cookies));
+  
+  // Check for JWT token first
+  const authToken = req.cookies?.auth_token;
+  if (authToken) {
+    try {
+      // Verify the JWT token
+      const decodedToken = jwt.verify(authToken, process.env.JWT_SECRET || 'dev-secret-key');
+      console.log('JWT token found and verified:', decodedToken);
+      
+      // Check if user has admin role
+      if (decodedToken.role?.toLowerCase() === 'admin') {
+        console.log(`Admin access granted for JWT user ${decodedToken.email}`);
+        return res.status(200).json({ 
+          message: 'Admin access granted',
+          auth: 'JWT'
+        });
+      } else {
+        console.warn(`Forbidden: JWT user is not an admin (role: ${decodedToken.role})`);
+        return res.status(403).json({ 
+          error: 'Forbidden', 
+          details: 'User is not an admin',
+          auth: 'JWT'
+        });
+      }
+    } catch (jwtError) {
+      console.error('JWT validation error:', jwtError);
+      // Continue to Azure AD check if JWT is invalid
+    }
+  }
+
+  // Fall back to Azure AD auth if no valid JWT token
   const userInfo = extractUserInfo(req);
   console.log(`adminCheck invoked. User ID: ${userInfo.userId || 'missing'}`);
 
@@ -57,7 +90,10 @@ async function handler(req, res) {
     console.log(`User role found: ${userRole}`);
     if (userRole.trim().toLowerCase() === 'admin') {
       console.log(`Admin access granted for user ${userInfo.userId}`);
-      return res.status(200).json({ message: 'Admin access granted' });
+      return res.status(200).json({ 
+        message: 'Admin access granted',
+        auth: 'Azure'
+      });
     }
 
     console.warn(`Forbidden: User ${userInfo.userId} is not an admin (role: ${userRole})`);

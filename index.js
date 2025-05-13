@@ -2,6 +2,7 @@
 
 const express = require('express');
 const path = require('path');
+const cookieParser = require('cookie-parser'); // Add this line
 
 // Import handlers & routers
 const checkAdminHandler = require('./checkAdmin');
@@ -9,7 +10,7 @@ const getSasTokenHandler = require('./getSasToken');
 const usersRouter = require('./users');
 const twoFARouter = require('./2fa');
 const registerRouter = require('./register'); 
-const loginRouter = require('./login'); // Add the login router import
+const loginRouter = require('./login');
 const { isMfaEnabled } = require('./mfaUtils');
 const requireAdminDb = require('./requireAdminDb');
 
@@ -19,6 +20,7 @@ app.disable('x-powered-by');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Add this line to enable cookie parsing
 
 app.use((req, res, next) => {
  res.setHeader('Access-Control-Allow-Origin', '*');
