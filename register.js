@@ -69,7 +69,7 @@ function rateLimit(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
   const attempts = registrationAttempts.get(ip) || [];
-  const recentAttempts = attempts.filter(time => now - time < 3600000);
+  const recentAttempts = attempts.filter(time => now - time < 600000);
   if (recentAttempts.length >= 5) {
     return res.status(429).json({
       error: 'Too many registration attempts. Please try again later.'
